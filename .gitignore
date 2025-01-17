@@ -29,3 +29,6 @@ dist-ssr
 .env.*
 !.env.example.env
 .env
+
+# Cypress environment variables
+cypress.env.json

@@ -1,0 +1,221 @@
+{
+  "stats": {
+    "suites": 1,
+    "tests": 6,
+    "passes": 1,
+    "pending": 0,
+    "failures": 5,
+    "start": "2025-01-16T12:04:35.882Z",
+    "end": "2025-01-16T12:05:02.470Z",
+    "duration": 26588,
+    "testsRegistered": 6,
+    "passPercent": 16.666666666666664,
+    "pendingPercent": 0,
+    "other": 0,
+    "hasOther": false,
+    "skipped": 0,
+    "hasSkipped": false
+  },
+  "results": [
+    {
+      "uuid": "6127cd46-8ab6-4708-98dd-a147362f6672",
+      "title": "",
+      "fullFile": "cypress\\e2e\\navigation.cy.ts",
+      "file": "cypress\\e2e\\navigation.cy.ts",
+      "beforeHooks": [],
+      "afterHooks": [],
+      "tests": [],
+      "suites": [
+        {
+          "uuid": "63c442b8-be7a-4f0e-8884-22926bc22eb9",
+          "title": "Fortune Telling App Navigation",
+          "fullFile": "",
+          "file": "",
+          "beforeHooks": [],
+          "afterHooks": [],
+          "tests": [
+            {
+              "title": "Guest navigation",
+              "fullTitle": "Fortune Telling App Navigation Guest navigation",
+              "timedOut": null,
+              "duration": 675,
+              "state": "passed",
+              "speed": "fast",
+              "pass": true,
+              "fail": false,
+              "pending": false,
+              "context": null,
+              "code": "cy.get('a[href=\"/login\"]').click();\ncy.url().should('include', '/login');\ncy.go('back');\ncy.get('a[href=\"/signup\"]').click();\ncy.url().should('include', '/signup');",
+              "err": {},
+              "uuid": "ae74098f-f3ae-44d1-9278-7ec1f82e668c",
+              "parentUUID": "63c442b8-be7a-4f0e-8884-22926bc22eb9",
+              "isHook": false,
+              "skipped": false
+            },
+            {
+              "title": "Normal user navigation",
+              "fullTitle": "Fortune Telling App Navigation Normal user navigation",
+              "timedOut": null,
+              "duration": 5335,
+              "state": "failed",
+              "speed": null,
+              "pass": false,
+              "fail": true,
+              "pending": false,
+              "context": null,
+              "code": "cy.intercept('POST', '/api/auth/login', {\n    statusCode: 200,\n    body: {\n        token: 'mock-token',\n        user: {\n            id: '1',\n            email: 'user@example.com',\n            role: 'USER',\n            isSubscribed: false\n        }\n    }\n}).as('loginRequest');\ncy.get('a[href=\"/login\"]').click();\ncy.get('input[type=\"email\"]').type('user@example.com');\ncy.get('input[type=\"password\"]').type('password123');\ncy.get('button[type=\"submit\"]').click();\ncy.wait('@loginRequest');\ncy.url().should('include', '/fortune');\ncy.get('button').contains('星占い').click();\ncy.url().should('include', '/fortune/astrology');",
+              "err": {
+                "message": "AssertionError: Timed out retrying after 4000ms: Expected to find content: '星占い' within the element: <button.px-6.py-2.bg-purple-500.text-white.rounded-full.hover:bg-purple-600.transition-colors.flex.items-center.gap-2> but never did.",
+                "estack": "AssertionError: Timed out retrying after 4000ms: Expected to find content: '星占い' within the element: <button.px-6.py-2.bg-purple-500.text-white.rounded-full.hover:bg-purple-600.transition-colors.flex.items-center.gap-2> but never did.\n    at Context.eval (webpack://vite-react-typescript-starter/./cypress/e2e/navigation.cy.ts:32:0)",
+                "diff": null
+              },
+              "uuid": "130d51a0-dcc4-4d9c-b9a6-ffde4e542716",
+              "parentUUID": "63c442b8-be7a-4f0e-8884-22926bc22eb9",
+              "isHook": false,
+              "skipped": false
+            },
+            {
+              "title": "Subscribed user navigation",
+              "fullTitle": "Fortune Telling App Navigation Subscribed user navigation",
+              "timedOut": null,
+              "duration": 5091,
+              "state": "failed",
+              "speed": null,
+              "pass": false,
+              "fail": true,
+              "pending": false,
+              "context": null,
+              "code": "cy.intercept('POST', '/api/auth/login', {\n    statusCode: 200,\n    body: {\n        token: 'mock-token',\n        user: {\n            id: '2',\n            email: 'subscriber@example.com',\n            role: 'USER',\n            isSubscribed: true\n        }\n    }\n}).as('loginRequest');\ncy.get('a[href=\"/login\"]').click();\ncy.get('input[type=\"email\"]').type('subscriber@example.com');\ncy.get('input[type=\"password\"]').type('password123');\ncy.get('button[type=\"submit\"]').click();\ncy.wait('@loginRequest');\ncy.url().should('include', '/fortune');\ncy.get('button').contains('星占い').click();\ncy.url().should('include', '/fortune/astrology');",
+              "err": {
+                "message": "AssertionError: Timed out retrying after 4000ms: Expected to find content: '星占い' within the element: <button.px-6.py-2.bg-purple-500.text-white.rounded-full.hover:bg-purple-600.transition-colors.flex.items-center.gap-2> but never did.",
+                "estack": "AssertionError: Timed out retrying after 4000ms: Expected to find content: '星占い' within the element: <button.px-6.py-2.bg-purple-500.text-white.rounded-full.hover:bg-purple-600.transition-colors.flex.items-center.gap-2> but never did.\n    at Context.eval (webpack://vite-react-typescript-starter/./cypress/e2e/navigation.cy.ts:54:0)",
+                "diff": null
+              },
+              "uuid": "29e520ae-0ed4-4609-8224-a4a22833fd61",
+              "parentUUID": "63c442b8-be7a-4f0e-8884-22926bc22eb9",
+              "isHook": false,
+              "skipped": false
+            },
+            {
+              "title": "Test user navigation",
+              "fullTitle": "Fortune Telling App Navigation Test user navigation",
+              "timedOut": null,
+              "duration": 5262,
+              "state": "failed",
+              "speed": null,
+              "pass": false,
+              "fail": true,
+              "pending": false,
+              "context": null,
+              "code": "cy.intercept('POST', '/api/auth/login', {\n    statusCode: 200,\n    body: {\n        token: 'mock-token',\n        user: {\n            id: '3',\n            email: 'test@example.com',\n            role: 'TEST_USER',\n            isSubscribed: true\n        }\n    }\n}).as('loginRequest');\ncy.get('a[href=\"/login\"]').click();\ncy.get('input[type=\"email\"]').type('test@example.com');\ncy.get('input[type=\"password\"]').type('password123');\ncy.get('button[type=\"submit\"]').click();\ncy.wait('@loginRequest');\ncy.url().should('include', '/fortune');\ncy.get('button').contains('星占い').click();\ncy.url().should('include', '/fortune/astrology');",
+              "err": {
+                "message": "AssertionError: Timed out retrying after 4000ms: Expected to find content: '星占い' within the element: <button.px-6.py-2.bg-purple-500.text-white.rounded-full.hover:bg-purple-600.transition-colors.flex.items-center.gap-2> but never did.",
+                "estack": "AssertionError: Timed out retrying after 4000ms: Expected to find content: '星占い' within the element: <button.px-6.py-2.bg-purple-500.text-white.rounded-full.hover:bg-purple-600.transition-colors.flex.items-center.gap-2> but never did.\n    at Context.eval (webpack://vite-react-typescript-starter/./cypress/e2e/navigation.cy.ts:76:0)",
+                "diff": null
+              },
+              "uuid": "24b7b732-38c1-4d63-ae45-2213181c4dc6",
+              "parentUUID": "63c442b8-be7a-4f0e-8884-22926bc22eb9",
+              "isHook": false,
+              "skipped": false
+            },
+            {
+              "title": "Admin navigation",
+              "fullTitle": "Fortune Telling App Navigation Admin navigation",
+              "timedOut": null,
+              "duration": 5023,
+              "state": "failed",
+              "speed": null,
+              "pass": false,
+              "fail": true,
+              "pending": false,
+              "context": null,
+              "code": "cy.intercept('POST', '/api/auth/login', {\n    statusCode: 200,\n    body: {\n        token: 'mock-token',\n        user: {\n            id: '4',\n            email: 'admin@example.com',\n            role: 'ADMIN',\n            isSubscribed: true\n        }\n    }\n}).as('loginRequest');\ncy.get('a[href=\"/login\"]').click();\ncy.get('input[type=\"email\"]').type('admin@example.com');\ncy.get('input[type=\"password\"]').type('password123');\ncy.get('button[type=\"submit\"]').click();\ncy.wait('@loginRequest');\ncy.url().should('include', '/fortune');\ncy.get('button').contains('管理画面').click();\ncy.url().should('include', '/admin');",
+              "err": {
+                "message": "AssertionError: Timed out retrying after 4000ms: Expected to find content: '管理画面' within the element: <button.px-6.py-2.bg-purple-500.text-white.rounded-full.hover:bg-purple-600.transition-colors.flex.items-center.gap-2> but never did.",
+                "estack": "AssertionError: Timed out retrying after 4000ms: Expected to find content: '管理画面' within the element: <button.px-6.py-2.bg-purple-500.text-white.rounded-full.hover:bg-purple-600.transition-colors.flex.items-center.gap-2> but never did.\n    at Context.eval (webpack://vite-react-typescript-starter/./cypress/e2e/navigation.cy.ts:98:0)",
+                "diff": null
+              },
+              "uuid": "fd78da65-feee-4850-8655-f2a6fe14cff1",
+              "parentUUID": "63c442b8-be7a-4f0e-8884-22926bc22eb9",
+              "isHook": false,
+              "skipped": false
+            },
+            {
+              "title": "New user registration flow",
+              "fullTitle": "Fortune Telling App Navigation New user registration flow",
+              "timedOut": null,
+              "duration": 5047,
+              "state": "failed",
+              "speed": null,
+              "pass": false,
+              "fail": true,
+              "pending": false,
+              "context": null,
+              "code": "cy.intercept('POST', '/api/auth/signup', {\n    statusCode: 200,\n    body: {\n        token: 'mock-token',\n        user: {\n            id: '5',\n            email: 'new@example.com',\n            role: 'USER',\n            isSubscribed: false\n        }\n    }\n}).as('signupRequest');\ncy.intercept('POST', '/api/user/personal-info', {\n    statusCode: 200,\n    body: {\n        message: 'Personal info saved successfully'\n    }\n}).as('personalInfoRequest');\ncy.get('a[href=\"/signup\"]').click();\ncy.get('input[type=\"email\"]').type('new@example.com');\ncy.get('input[type=\"password\"]').type('password123');\ncy.get('button[type=\"submit\"]').click();\ncy.wait('@signupRequest');\ncy.url().should('include', '/personal-info');\ncy.get('input[name=\"name\"]').type('Test User');\ncy.get('input[name=\"birthDate\"]').type('2000-01-01');\ncy.get('button[type=\"submit\"]').click();\ncy.wait('@personalInfoRequest');\ncy.url().should('include', '/fortune');",
+              "err": {
+                "message": "AssertionError: Timed out retrying after 4000ms: Expected to find element: `input[name=\"name\"]`, but never found it.",
+                "estack": "AssertionError: Timed out retrying after 4000ms: Expected to find element: `input[name=\"name\"]`, but never found it.\n    at Context.eval (webpack://vite-react-typescript-starter/./cypress/e2e/navigation.cy.ts:126:0)",
+                "diff": null
+              },
+              "uuid": "3d5234e2-6a72-4299-85a4-1292acd93bd2",
+              "parentUUID": "63c442b8-be7a-4f0e-8884-22926bc22eb9",
+              "isHook": false,
+              "skipped": false
+            }
+          ],
+          "suites": [],
+          "passes": [
+            "ae74098f-f3ae-44d1-9278-7ec1f82e668c"
+          ],
+          "failures": [
+            "130d51a0-dcc4-4d9c-b9a6-ffde4e542716",
+            "29e520ae-0ed4-4609-8224-a4a22833fd61",
+            "24b7b732-38c1-4d63-ae45-2213181c4dc6",
+            "fd78da65-feee-4850-8655-f2a6fe14cff1",
+            "3d5234e2-6a72-4299-85a4-1292acd93bd2"
+          ],
+          "pending": [],
+          "skipped": [],
+          "duration": 26433,
+          "root": false,
+          "rootEmpty": false,
+          "_timeout": 2000
+        }
+      ],
+      "passes": [],
+      "failures": [],
+      "pending": [],
+      "skipped": [],
+      "duration": 0,
+      "root": true,
+      "rootEmpty": true,
+      "_timeout": 2000
+    }
+  ],
+  "meta": {
+    "mocha": {
+      "version": "7.0.1"
+    },
+    "mochawesome": {
+      "options": {
+        "quiet": false,
+        "reportFilename": "mochawesome",
+        "saveHtml": true,
+        "saveJson": true,
+        "consoleReporter": "spec",
+        "useInlineDiffs": false,
+        "code": true
+      },
+      "version": "7.1.3"
+    },
+    "marge": {
+      "options": {
+        "reportDir": "cypress/reports",
+        "overwrite": false,
+        "html": true,
+        "json": true
+      },
+      "version": "6.2.0"
+    }
+  }
+}

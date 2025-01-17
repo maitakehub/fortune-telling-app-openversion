@@ -1,0 +1,383 @@
+{
+  "stats": {
+    "suites": 7,
+    "tests": 7,
+    "passes": 1,
+    "pending": 0,
+    "failures": 6,
+    "start": "2025-01-16T11:45:11.829Z",
+    "end": "2025-01-16T11:45:39.298Z",
+    "duration": 27469,
+    "testsRegistered": 8,
+    "passPercent": 12.5,
+    "pendingPercent": 0,
+    "other": 0,
+    "hasOther": false,
+    "skipped": 1,
+    "hasSkipped": true
+  },
+  "results": [
+    {
+      "uuid": "fd8065e3-83bb-4b1a-b3d5-abcb5a8cb748",
+      "title": "",
+      "fullFile": "cypress\\e2e\\navigation.cy.ts",
+      "file": "cypress\\e2e\\navigation.cy.ts",
+      "beforeHooks": [],
+      "afterHooks": [],
+      "tests": [],
+      "suites": [
+        {
+          "uuid": "62934c95-080b-4207-bf4f-d8f8c066212a",
+          "title": "Fortune Telling App Navigation",
+          "fullFile": "",
+          "file": "",
+          "beforeHooks": [],
+          "afterHooks": [],
+          "tests": [],
+          "suites": [
+            {
+              "uuid": "35162f9a-657e-47a1-865d-14b7d91d432f",
+              "title": "Guest Navigation",
+              "fullFile": "",
+              "file": "",
+              "beforeHooks": [],
+              "afterHooks": [],
+              "tests": [
+                {
+                  "title": "should navigate from homepage buttons",
+                  "fullTitle": "Fortune Telling App Navigation Guest Navigation should navigate from homepage buttons",
+                  "timedOut": null,
+                  "duration": 4515,
+                  "state": "failed",
+                  "speed": null,
+                  "pass": false,
+                  "fail": true,
+                  "pending": false,
+                  "context": null,
+                  "code": "// ヘッダーのナビゲーション確認\ncy.contains('button', 'ログイン').click();\ncy.url().should('include', '/login');\ncy.go('back');\ncy.contains('button', '新規登録').click();\ncy.url().should('include', '/signup');\ncy.go('back');\n// 占い種類の選択\ncy.contains('タロット占い').click();\ncy.url().should('include', '/login');\ncy.go('back');\ncy.contains('四柱推命').click();\ncy.url().should('include', '/login');\ncy.go('back');\n// サブスクリプションプラン\ncy.contains('プレミアムプラン').parent().contains('このプランを選択').click();\ncy.url().should('include', '/login');\ncy.go('back');\ncy.contains('ベーシックプラン').parent().contains('このプランを選択').click();\ncy.url().should('include', '/login');",
+                  "err": {
+                    "message": "AssertionError: Timed out retrying after 4000ms: Expected to find content: 'ログイン' within the selector: 'button' but never did.",
+                    "estack": "AssertionError: Timed out retrying after 4000ms: Expected to find content: 'ログイン' within the selector: 'button' but never did.\n    at Context.eval (webpack://vite-react-typescript-starter/./cypress/e2e/navigation.cy.ts:40:0)",
+                    "diff": null
+                  },
+                  "uuid": "d23b883c-c0df-4608-a15d-3c68fffc5bdc",
+                  "parentUUID": "35162f9a-657e-47a1-865d-14b7d91d432f",
+                  "isHook": false,
+                  "skipped": false
+                },
+                {
+                  "title": "should redirect protected routes to login",
+                  "fullTitle": "Fortune Telling App Navigation Guest Navigation should redirect protected routes to login",
+                  "timedOut": null,
+                  "duration": 1311,
+                  "state": "passed",
+                  "speed": "fast",
+                  "pass": true,
+                  "fail": false,
+                  "pending": false,
+                  "context": null,
+                  "code": "// 直接URLアクセスの確認\nfortunePaths.forEach(path => {\n    cy.visit(`/fortune/${path}`);\n    cy.url().should('include', '/login');\n});\ncy.visit('/admin');\ncy.url().should('include', '/login');\ncy.visit('/history');\ncy.url().should('include', '/login');",
+                  "err": {},
+                  "uuid": "dfed0adb-578c-4db4-a319-27823519ba79",
+                  "parentUUID": "35162f9a-657e-47a1-865d-14b7d91d432f",
+                  "isHook": false,
+                  "skipped": false
+                }
+              ],
+              "suites": [],
+              "passes": [
+                "dfed0adb-578c-4db4-a319-27823519ba79"
+              ],
+              "failures": [
+                "d23b883c-c0df-4608-a15d-3c68fffc5bdc"
+              ],
+              "pending": [],
+              "skipped": [],
+              "duration": 5826,
+              "root": false,
+              "rootEmpty": false,
+              "_timeout": 2000
+            },
+            {
+              "uuid": "2ead3245-1b51-4335-b27d-a079de6d62ad",
+              "title": "Normal User Navigation",
+              "fullFile": "",
+              "file": "",
+              "beforeHooks": [],
+              "afterHooks": [],
+              "tests": [
+                {
+                  "title": "should navigate from homepage after login",
+                  "fullTitle": "Fortune Telling App Navigation Normal User Navigation should navigate from homepage after login",
+                  "timedOut": null,
+                  "duration": 4262,
+                  "state": "failed",
+                  "speed": null,
+                  "pass": false,
+                  "fail": true,
+                  "pending": false,
+                  "context": null,
+                  "code": "cy.visit('/');\n// 占い種類の選択\ncy.contains('タロット占い').click();\ncy.url().should('include', '/subscription');\ncy.go('back');\ncy.contains('四柱推命').click();\ncy.url().should('include', '/subscription');\ncy.go('back');\n// ヘッダーメニュー\ncy.contains('履歴').click();\ncy.url().should('include', '/history');\ncy.go('back');\n// プロフィール操作\ncy.get('button').find('svg').click(); // プロフィールメニュー\ncy.contains('プロフィール編集').click();\ncy.url().should('include', '/personal-info');",
+                  "err": {
+                    "message": "AssertionError: Timed out retrying after 4000ms: Expected to find content: 'ログイン' within the selector: 'button' but never did.\n\nBecause this error occurred during a `before each` hook we are skipping the remaining tests in the current suite: `Normal User Navigation`",
+                    "estack": "AssertionError: Timed out retrying after 4000ms: Expected to find content: 'ログイン' within the selector: 'button' but never did.\n\nBecause this error occurred during a `before each` hook we are skipping the remaining tests in the current suite: `Normal User Navigation`\n    at Context.eval (webpack://vite-react-typescript-starter/./cypress/e2e/navigation.cy.ts:75:0)",
+                    "diff": null
+                  },
+                  "uuid": "20a8ca85-6cb0-46ff-a9f9-70fd49d4bdb2",
+                  "parentUUID": "2ead3245-1b51-4335-b27d-a079de6d62ad",
+                  "isHook": false,
+                  "skipped": false
+                },
+                {
+                  "title": "should handle subscription flow",
+                  "fullTitle": "Fortune Telling App Navigation Normal User Navigation should handle subscription flow",
+                  "timedOut": null,
+                  "duration": 0,
+                  "state": "skipped",
+                  "speed": null,
+                  "pass": false,
+                  "fail": false,
+                  "pending": false,
+                  "context": null,
+                  "code": "cy.visit('/');\n// サブスクリプションプラン選択\ncy.contains('プレミアムプラン').parent().contains('このプランを選択').click();\ncy.get('#payment-form').should('exist');\ncy.go('back');\ncy.contains('テストプラン').parent().contains('このプランを選択').click();\ncy.url().should('include', '/fortune/fourpillars');",
+                  "err": {},
+                  "uuid": "e4f0a4a7-609b-46b1-b556-b504388f168e",
+                  "parentUUID": "2ead3245-1b51-4335-b27d-a079de6d62ad",
+                  "isHook": false,
+                  "skipped": true
+                }
+              ],
+              "suites": [],
+              "passes": [],
+              "failures": [
+                "20a8ca85-6cb0-46ff-a9f9-70fd49d4bdb2"
+              ],
+              "pending": [],
+              "skipped": [
+                "e4f0a4a7-609b-46b1-b556-b504388f168e"
+              ],
+              "duration": 4262,
+              "root": false,
+              "rootEmpty": false,
+              "_timeout": 2000
+            },
+            {
+              "uuid": "8b9e811a-77f0-4f1b-be93-6a39efd0a0df",
+              "title": "Subscribed User Navigation",
+              "fullFile": "",
+              "file": "",
+              "beforeHooks": [],
+              "afterHooks": [],
+              "tests": [
+                {
+                  "title": "should access all fortune features from homepage",
+                  "fullTitle": "Fortune Telling App Navigation Subscribed User Navigation should access all fortune features from homepage",
+                  "timedOut": null,
+                  "duration": 4312,
+                  "state": "failed",
+                  "speed": null,
+                  "pass": false,
+                  "fail": true,
+                  "pending": false,
+                  "context": null,
+                  "code": "cy.visit('/');\n// 各占いメニューへのアクセス\ncy.contains('タロット占い').click();\ncy.url().should('include', '/fortune/tarot');\ncy.go('back');\ncy.contains('四柱推命').click();\ncy.url().should('include', '/fortune/fourpillars');\ncy.go('back');\n// 履歴確認\ncy.contains('履歴').click();\ncy.url().should('include', '/history');\ncy.get('.history-item').first().click();\ncy.url().should('include', '/fortune');",
+                  "err": {
+                    "message": "AssertionError: Timed out retrying after 4000ms: Expected to find content: 'ログイン' within the selector: 'button' but never did.\n\nBecause this error occurred during a `before each` hook we are skipping the remaining tests in the current suite: `Subscribed User Navigation`",
+                    "estack": "AssertionError: Timed out retrying after 4000ms: Expected to find content: 'ログイン' within the selector: 'button' but never did.\n\nBecause this error occurred during a `before each` hook we are skipping the remaining tests in the current suite: `Subscribed User Navigation`\n    at Context.eval (webpack://vite-react-typescript-starter/./cypress/e2e/navigation.cy.ts:113:0)",
+                    "diff": null
+                  },
+                  "uuid": "c7b81ece-559b-4bdb-8b01-ad5f42a53159",
+                  "parentUUID": "8b9e811a-77f0-4f1b-be93-6a39efd0a0df",
+                  "isHook": false,
+                  "skipped": false
+                }
+              ],
+              "suites": [],
+              "passes": [],
+              "failures": [
+                "c7b81ece-559b-4bdb-8b01-ad5f42a53159"
+              ],
+              "pending": [],
+              "skipped": [],
+              "duration": 4312,
+              "root": false,
+              "rootEmpty": false,
+              "_timeout": 2000
+            },
+            {
+              "uuid": "cafddd26-8aac-4835-b578-2c9826fc09ad",
+              "title": "Test User Navigation",
+              "fullFile": "",
+              "file": "",
+              "beforeHooks": [],
+              "afterHooks": [],
+              "tests": [
+                {
+                  "title": "should access all features without subscription",
+                  "fullTitle": "Fortune Telling App Navigation Test User Navigation should access all features without subscription",
+                  "timedOut": null,
+                  "duration": 4292,
+                  "state": "failed",
+                  "speed": null,
+                  "pass": false,
+                  "fail": true,
+                  "pending": false,
+                  "context": null,
+                  "code": "cy.visit('/');\n// 各占いメニューへのアクセス確認\ncy.contains('タロット占い').click();\ncy.url().should('include', '/fortune/tarot');\ncy.go('back');\ncy.contains('四柱推命').click();\ncy.url().should('include', '/fortune/fourpillars');\ncy.go('back');\n// サブスクリプションページでもテストユーザー表示の確認\ncy.visit('/subscription');\ncy.contains('テストユーザー専用プラン');",
+                  "err": {
+                    "message": "AssertionError: Timed out retrying after 4000ms: Expected to find content: 'ログイン' within the selector: 'button' but never did.\n\nBecause this error occurred during a `before each` hook we are skipping the remaining tests in the current suite: `Test User Navigation`",
+                    "estack": "AssertionError: Timed out retrying after 4000ms: Expected to find content: 'ログイン' within the selector: 'button' but never did.\n\nBecause this error occurred during a `before each` hook we are skipping the remaining tests in the current suite: `Test User Navigation`\n    at Context.eval (webpack://vite-react-typescript-starter/./cypress/e2e/navigation.cy.ts:138:0)",
+                    "diff": null
+                  },
+                  "uuid": "3f0f5779-0838-4cfc-bc0d-80f9c17980a1",
+                  "parentUUID": "cafddd26-8aac-4835-b578-2c9826fc09ad",
+                  "isHook": false,
+                  "skipped": false
+                }
+              ],
+              "suites": [],
+              "passes": [],
+              "failures": [
+                "3f0f5779-0838-4cfc-bc0d-80f9c17980a1"
+              ],
+              "pending": [],
+              "skipped": [],
+              "duration": 4292,
+              "root": false,
+              "rootEmpty": false,
+              "_timeout": 2000
+            },
+            {
+              "uuid": "b04fd22c-8bc2-4092-94d9-9ebc518e0adb",
+              "title": "Admin Navigation",
+              "fullFile": "",
+              "file": "",
+              "beforeHooks": [],
+              "afterHooks": [],
+              "tests": [
+                {
+                  "title": "should access admin features from homepage",
+                  "fullTitle": "Fortune Telling App Navigation Admin Navigation should access admin features from homepage",
+                  "timedOut": null,
+                  "duration": 4284,
+                  "state": "failed",
+                  "speed": null,
+                  "pass": false,
+                  "fail": true,
+                  "pending": false,
+                  "context": null,
+                  "code": "cy.visit('/');\n// 管理者メニューの確認\ncy.contains('管理者メニュー').click();\ncy.url().should('include', '/admin');\n// ユーザー管理\ncy.contains('ユーザー管理').click();\ncy.get('table').should('exist');\ncy.contains('button', '編集').should('exist');\ncy.contains('button', '削除').should('exist');\n// システム設定\ncy.contains('システム設定').click();\ncy.contains('メンテナンスモード').should('exist');\ncy.contains('機能の有効/無効').should('exist');\ncy.contains('サブスクリプション設定').should('exist');\ncy.contains('通知設定').should('exist');\n// 通常機能へのアクセス\ncy.visit('/');\ncy.contains('タロット占い').click();\ncy.url().should('include', '/fortune/tarot');",
+                  "err": {
+                    "message": "AssertionError: Timed out retrying after 4000ms: Expected to find content: 'ログイン' within the selector: 'button' but never did.\n\nBecause this error occurred during a `before each` hook we are skipping the remaining tests in the current suite: `Admin Navigation`",
+                    "estack": "AssertionError: Timed out retrying after 4000ms: Expected to find content: 'ログイン' within the selector: 'button' but never did.\n\nBecause this error occurred during a `before each` hook we are skipping the remaining tests in the current suite: `Admin Navigation`\n    at Context.eval (webpack://vite-react-typescript-starter/./cypress/e2e/navigation.cy.ts:161:0)",
+                    "diff": null
+                  },
+                  "uuid": "a4b55c74-d1f0-4ad1-adcb-39ee945dd266",
+                  "parentUUID": "b04fd22c-8bc2-4092-94d9-9ebc518e0adb",
+                  "isHook": false,
+                  "skipped": false
+                }
+              ],
+              "suites": [],
+              "passes": [],
+              "failures": [
+                "a4b55c74-d1f0-4ad1-adcb-39ee945dd266"
+              ],
+              "pending": [],
+              "skipped": [],
+              "duration": 4284,
+              "root": false,
+              "rootEmpty": false,
+              "_timeout": 2000
+            },
+            {
+              "uuid": "4d6b8006-4760-4330-946c-cb7fda2dcd75",
+              "title": "New User Registration Flow",
+              "fullFile": "",
+              "file": "",
+              "beforeHooks": [],
+              "afterHooks": [],
+              "tests": [
+                {
+                  "title": "should complete signup and personal info",
+                  "fullTitle": "Fortune Telling App Navigation New User Registration Flow should complete signup and personal info",
+                  "timedOut": null,
+                  "duration": 4313,
+                  "state": "failed",
+                  "speed": null,
+                  "pass": false,
+                  "fail": true,
+                  "pending": false,
+                  "context": null,
+                  "code": "cy.visit('/');\ncy.contains('button', '新規登録').click();\n// 新規登録フォーム\ncy.get('input[type=\"email\"]').type('newuser2@example.com');\ncy.get('input[type=\"password\"]').type('password123');\ncy.get('input[type=\"password\"]').eq(1).type('password123');\ncy.get('form').submit();\n// 個人情報登録\ncy.url().should('include', '/personal-info');\ncy.get('input[name=\"name\"]').type('新規テストユーザー');\ncy.get('input[name=\"birthDate\"]').type('2000-01-01');\ncy.get('input[name=\"birthTime\"]').type('12:00');\ncy.get('input[name=\"gender\"]').type('その他');\ncy.get('form').submit();\n// 占い選択ページへ遷移\ncy.url().should('include', '/fortune');",
+                  "err": {
+                    "message": "AssertionError: Timed out retrying after 4000ms: Expected to find content: '新規登録' within the selector: 'button' but never did.",
+                    "estack": "AssertionError: Timed out retrying after 4000ms: Expected to find content: '新規登録' within the selector: 'button' but never did.\n    at Context.eval (webpack://vite-react-typescript-starter/./cypress/e2e/navigation.cy.ts:192:0)",
+                    "diff": null
+                  },
+                  "uuid": "f652975b-57f2-4d6f-b7b6-0bdc27892615",
+                  "parentUUID": "4d6b8006-4760-4330-946c-cb7fda2dcd75",
+                  "isHook": false,
+                  "skipped": false
+                }
+              ],
+              "suites": [],
+              "passes": [],
+              "failures": [
+                "f652975b-57f2-4d6f-b7b6-0bdc27892615"
+              ],
+              "pending": [],
+              "skipped": [],
+              "duration": 4313,
+              "root": false,
+              "rootEmpty": false,
+              "_timeout": 2000
+            }
+          ],
+          "passes": [],
+          "failures": [],
+          "pending": [],
+          "skipped": [],
+          "duration": 0,
+          "root": false,
+          "rootEmpty": false,
+          "_timeout": 2000
+        }
+      ],
+      "passes": [],
+      "failures": [],
+      "pending": [],
+      "skipped": [],
+      "duration": 0,
+      "root": true,
+      "rootEmpty": true,
+      "_timeout": 2000
+    }
+  ],
+  "meta": {
+    "mocha": {
+      "version": "7.0.1"
+    },
+    "mochawesome": {
+      "options": {
+        "quiet": false,
+        "reportFilename": "mochawesome",
+        "saveHtml": true,
+        "saveJson": true,
+        "consoleReporter": "spec",
+        "useInlineDiffs": false,
+        "code": true
+      },
+      "version": "7.1.3"
+    },
+    "marge": {
+      "options": {
+        "reportDir": "cypress/reports",
+        "overwrite": false,
+        "html": true,
+        "json": true
+      },
+      "version": "6.2.0"
+    }
+  }
+}

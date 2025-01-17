@@ -1,0 +1,205 @@
+{
+  "stats": {
+    "suites": 1,
+    "tests": 6,
+    "passes": 5,
+    "pending": 0,
+    "failures": 1,
+    "start": "2025-01-16T12:09:15.281Z",
+    "end": "2025-01-16T12:09:25.100Z",
+    "duration": 9819,
+    "testsRegistered": 6,
+    "passPercent": 83.33333333333334,
+    "pendingPercent": 0,
+    "other": 0,
+    "hasOther": false,
+    "skipped": 0,
+    "hasSkipped": false
+  },
+  "results": [
+    {
+      "uuid": "8c81fcc3-4e1d-4413-9228-e2b703184111",
+      "title": "",
+      "fullFile": "cypress\\e2e\\navigation.cy.ts",
+      "file": "cypress\\e2e\\navigation.cy.ts",
+      "beforeHooks": [],
+      "afterHooks": [],
+      "tests": [],
+      "suites": [
+        {
+          "uuid": "34fada71-f410-4535-9805-96f3b4f09312",
+          "title": "Fortune Telling App Navigation",
+          "fullFile": "",
+          "file": "",
+          "beforeHooks": [],
+          "afterHooks": [],
+          "tests": [
+            {
+              "title": "Guest navigation",
+              "fullTitle": "Fortune Telling App Navigation Guest navigation",
+              "timedOut": null,
+              "duration": 693,
+              "state": "passed",
+              "speed": "fast",
+              "pass": true,
+              "fail": false,
+              "pending": false,
+              "context": null,
+              "code": "cy.get('a[href=\"/login\"]').click();\ncy.url().should('include', '/login');\ncy.go('back');\ncy.get('a[href=\"/signup\"]').click();\ncy.url().should('include', '/signup');",
+              "err": {},
+              "uuid": "00824b8b-2c32-4180-91c4-44f968327379",
+              "parentUUID": "34fada71-f410-4535-9805-96f3b4f09312",
+              "isHook": false,
+              "skipped": false
+            },
+            {
+              "title": "Normal user navigation",
+              "fullTitle": "Fortune Telling App Navigation Normal user navigation",
+              "timedOut": null,
+              "duration": 1215,
+              "state": "passed",
+              "speed": "fast",
+              "pass": true,
+              "fail": false,
+              "pending": false,
+              "context": null,
+              "code": "cy.intercept('POST', '/api/auth/login', {\n    statusCode: 200,\n    body: {\n        token: 'mock-token',\n        user: {\n            email: 'user@example.com',\n            role: 'USER',\n            isSubscribed: false\n        }\n    }\n}).as('loginRequest');\ncy.get('a[href=\"/login\"]').click();\ncy.get('input[type=\"email\"]').type('user@example.com');\ncy.get('input[type=\"password\"]').type('password123');\ncy.get('button[type=\"submit\"]').click();\ncy.wait('@loginRequest');\ncy.url().should('include', '/fortune');",
+              "err": {},
+              "uuid": "5116bf36-9302-49b7-981d-6879de1d12a4",
+              "parentUUID": "34fada71-f410-4535-9805-96f3b4f09312",
+              "isHook": false,
+              "skipped": false
+            },
+            {
+              "title": "Subscribed user navigation",
+              "fullTitle": "Fortune Telling App Navigation Subscribed user navigation",
+              "timedOut": null,
+              "duration": 973,
+              "state": "passed",
+              "speed": "fast",
+              "pass": true,
+              "fail": false,
+              "pending": false,
+              "context": null,
+              "code": "cy.intercept('POST', '/api/auth/login', {\n    statusCode: 200,\n    body: {\n        token: 'mock-token',\n        user: {\n            email: 'subscriber@example.com',\n            role: 'USER',\n            isSubscribed: true\n        }\n    }\n}).as('loginRequest');\ncy.get('a[href=\"/login\"]').click();\ncy.get('input[type=\"email\"]').type('subscriber@example.com');\ncy.get('input[type=\"password\"]').type('password123');\ncy.get('button[type=\"submit\"]').click();\ncy.wait('@loginRequest');\ncy.url().should('include', '/fortune');",
+              "err": {},
+              "uuid": "c2e1cd16-9e58-47f4-a489-f7600e75e15a",
+              "parentUUID": "34fada71-f410-4535-9805-96f3b4f09312",
+              "isHook": false,
+              "skipped": false
+            },
+            {
+              "title": "Test user navigation",
+              "fullTitle": "Fortune Telling App Navigation Test user navigation",
+              "timedOut": null,
+              "duration": 879,
+              "state": "passed",
+              "speed": "fast",
+              "pass": true,
+              "fail": false,
+              "pending": false,
+              "context": null,
+              "code": "cy.intercept('POST', '/api/auth/login', {\n    statusCode: 200,\n    body: {\n        token: 'mock-token',\n        user: {\n            email: 'test@example.com',\n            role: 'TEST_USER',\n            isSubscribed: false\n        }\n    }\n}).as('loginRequest');\ncy.get('a[href=\"/login\"]').click();\ncy.get('input[type=\"email\"]').type('test@example.com');\ncy.get('input[type=\"password\"]').type('password123');\ncy.get('button[type=\"submit\"]').click();\ncy.wait('@loginRequest');\ncy.url().should('include', '/fortune');",
+              "err": {},
+              "uuid": "e7f2f56d-8408-44ae-a3b0-54163a448098",
+              "parentUUID": "34fada71-f410-4535-9805-96f3b4f09312",
+              "isHook": false,
+              "skipped": false
+            },
+            {
+              "title": "Admin navigation",
+              "fullTitle": "Fortune Telling App Navigation Admin navigation",
+              "timedOut": null,
+              "duration": 898,
+              "state": "passed",
+              "speed": "fast",
+              "pass": true,
+              "fail": false,
+              "pending": false,
+              "context": null,
+              "code": "cy.intercept('POST', '/api/auth/login', {\n    statusCode: 200,\n    body: {\n        token: 'mock-token',\n        user: {\n            email: 'admin@example.com',\n            role: 'ADMIN',\n            isSubscribed: true\n        }\n    }\n}).as('loginRequest');\ncy.get('a[href=\"/login\"]').click();\ncy.get('input[type=\"email\"]').type('admin@example.com');\ncy.get('input[type=\"password\"]').type('password123');\ncy.get('button[type=\"submit\"]').click();\ncy.wait('@loginRequest');\ncy.url().should('include', '/fortune');",
+              "err": {},
+              "uuid": "f12ec62f-5122-4c6b-98dc-deacd0f81126",
+              "parentUUID": "34fada71-f410-4535-9805-96f3b4f09312",
+              "isHook": false,
+              "skipped": false
+            },
+            {
+              "title": "New user registration flow",
+              "fullTitle": "Fortune Telling App Navigation New user registration flow",
+              "timedOut": null,
+              "duration": 5039,
+              "state": "failed",
+              "speed": null,
+              "pass": false,
+              "fail": true,
+              "pending": false,
+              "context": null,
+              "code": "cy.intercept('POST', '/api/auth/signup', {\n    statusCode: 200,\n    body: {\n        token: 'mock-token',\n        user: {\n            email: 'new@example.com',\n            role: 'USER',\n            isSubscribed: false\n        }\n    }\n}).as('signupRequest');\ncy.intercept('POST', '/api/personal-info', {\n    statusCode: 200,\n    body: {\n        message: 'Personal info saved successfully'\n    }\n}).as('personalInfoRequest');\ncy.get('a[href=\"/signup\"]').click();\ncy.get('input[type=\"email\"]').type('new@example.com');\ncy.get('input[type=\"password\"]').type('password123');\ncy.get('button[type=\"submit\"]').click();\ncy.wait('@signupRequest');\ncy.url().should('include', '/personal-info');\ncy.get('input[name=\"name\"]').type('Test User');\ncy.get('input[name=\"birthDate\"]').type('2000-01-01');\ncy.get('input[name=\"birthTime\"]').type('12:00');\ncy.get('select[name=\"gender\"]').select('その他');\ncy.get('button[type=\"submit\"]').click();\ncy.wait('@personalInfoRequest');\ncy.url().should('include', '/fortune');",
+              "err": {
+                "message": "AssertionError: Timed out retrying after 4000ms: Expected to find element: `input[name=\"name\"]`, but never found it.",
+                "estack": "AssertionError: Timed out retrying after 4000ms: Expected to find element: `input[name=\"name\"]`, but never found it.\n    at Context.eval (webpack://vite-react-typescript-starter/./cypress/e2e/navigation.cy.ts:113:0)",
+                "diff": null
+              },
+              "uuid": "6dadb821-5a8f-4968-b128-0371655d9ebe",
+              "parentUUID": "34fada71-f410-4535-9805-96f3b4f09312",
+              "isHook": false,
+              "skipped": false
+            }
+          ],
+          "suites": [],
+          "passes": [
+            "00824b8b-2c32-4180-91c4-44f968327379",
+            "5116bf36-9302-49b7-981d-6879de1d12a4",
+            "c2e1cd16-9e58-47f4-a489-f7600e75e15a",
+            "e7f2f56d-8408-44ae-a3b0-54163a448098",
+            "f12ec62f-5122-4c6b-98dc-deacd0f81126"
+          ],
+          "failures": [
+            "6dadb821-5a8f-4968-b128-0371655d9ebe"
+          ],
+          "pending": [],
+          "skipped": [],
+          "duration": 9697,
+          "root": false,
+          "rootEmpty": false,
+          "_timeout": 2000
+        }
+      ],
+      "passes": [],
+      "failures": [],
+      "pending": [],
+      "skipped": [],
+      "duration": 0,
+      "root": true,
+      "rootEmpty": true,
+      "_timeout": 2000
+    }
+  ],
+  "meta": {
+    "mocha": {
+      "version": "7.0.1"
+    },
+    "mochawesome": {
+      "options": {
+        "quiet": false,
+        "reportFilename": "mochawesome",
+        "saveHtml": true,
+        "saveJson": true,
+        "consoleReporter": "spec",
+        "useInlineDiffs": false,
+        "code": true
+      },
+      "version": "7.1.3"
+    },
+    "marge": {
+      "options": {
+        "reportDir": "cypress/reports",
+        "overwrite": false,
+        "html": true,
+        "json": true
+      },
+      "version": "6.2.0"
+    }
+  }
+}

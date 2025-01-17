@@ -6,6 +6,7 @@ type PersonalInfoContextType = {
   setPersonalInfo: (info: PersonalInfo | null) => void;
   clearPersonalInfo: () => void;
   isOnboardingComplete: boolean;
+  completeOnboarding: () => void;
 };
 
 const PersonalInfoContext = createContext<PersonalInfoContextType | undefined>(undefined);
@@ -35,6 +36,11 @@ export function PersonalInfoProvider({ children }: { children: React.ReactNode }
     setIsOnboardingComplete(false);
   };
 
+  const completeOnboarding = () => {
+    localStorage.setItem('onboardingComplete', 'true');
+    setIsOnboardingComplete(true);
+  };
+
   return (
     <PersonalInfoContext.Provider
       value={{
@@ -42,6 +48,7 @@ export function PersonalInfoProvider({ children }: { children: React.ReactNode }
         setPersonalInfo,
         clearPersonalInfo,
         isOnboardingComplete,
+        completeOnboarding
       }}
     >
       {children}

@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, User, Bot, Sparkles } from 'lucide-react';
+import { Send, User, Bot, Sparkles, Home, History } from 'lucide-react';
 import { usePersonalInfo } from '../context/PersonalInfoContext';
 import { Message, ChatContext } from '../types/chat';
 import { getOpenAIResponse } from '../utils/openai';
+import { useNavigate } from 'react-router-dom';
 
 const SUGGESTIONS = [
   "今日の運勢を教えて",
@@ -16,6 +17,7 @@ const SUGGESTIONS = [
 
 export default function AstrologyChatBot() {
   const { personalInfo } = usePersonalInfo();
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -142,111 +144,125 @@ export default function AstrologyChatBot() {
   };
 
   return (
-    <div className="h-[600px] flex flex-col">
-      <div className="flex-1 overflow-y-auto mb-4 space-y-4 pr-2">
-        <AnimatePresence>
-          {messages.map((message) => (
-            <motion.div
-              key={message.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className={`flex items-start gap-3 ${
-                message.sender === 'user' ? 'flex-row-reverse' : ''
-              }`}
-            >
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  message.sender === 'user'
-                    ? 'bg-purple-500'
-                    : 'bg-indigo-600'
-                }`}
-              >
-                {message.sender === 'user' ? (
-                  <User size={16} className="text-white" />
-                ) : (
-                  <Bot size={16} className="text-white" />
-                )}
-              </div>
-              <div className="space-y-2 max-w-[80%]">
-                <div
-                  className={`rounded-2xl px-4 py-2 ${
-                    message.sender === 'user'
-                      ? 'bg-purple-500 text-white'
-                      : 'bg-indigo-600/50 text-purple-50'
-                  }`}
-                >
-                  <p className="whitespace-pre-wrap">{message.content}</p>
-                </div>
-
-                {message.sender === 'bot' && message.metadata?.suggestions && showSuggestions && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {message.metadata.suggestions.map((suggestion, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setInput(suggestion)}
-                        className="text-sm px-3 py-1 rounded-full bg-purple-900/30 text-purple-200 hover:bg-purple-800/30 transition-colors"
-                      >
-                        {suggestion}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              {message.sender === 'bot' && messages.length === 1 && message.metadata?.suggestions && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {message.metadata.suggestions.map((suggestion, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setInput(suggestion)}
-                        className="text-sm px-3 py-1 rounded-full bg-purple-900/30 text-purple-200 hover:bg-purple-800/30 transition-colors"
-                      >
-                        {suggestion}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-        {isLoading && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex items-center gap-2 text-purple-300"
-          >
-            <div className="flex space-x-1">
-              <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" />
-              <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-              <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
-            </div>
-            <span className="text-sm">占いの神託を読み解いています...</span>
-          </motion.div>
-        )}
-        <div ref={messagesEndRef} />
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
+      <div className="flex justify-between items-center mb-4 sm:mb-6 lg:mb-8">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-purple-100 text-center flex-grow">AIと対話しながら星占い</h1>
+        <button
+          onClick={() => navigate('/fortune')}
+          className="px-4 py-2 bg-purple-800 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+        >
+          占い選択に戻る
+        </button>
       </div>
 
-      <div className="relative mt-4">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-          placeholder="運勢や気になることを聞いてください..."
-          className="w-full bg-purple-900/30 text-purple-100 placeholder-purple-300/50 rounded-full py-3 pl-4 pr-12 focus:outline-none focus:ring-2 focus:ring-purple-500"
-          disabled={isLoading}
-        />
-        <button
-          onClick={handleSend}
-          disabled={isLoading}
-          className={`absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full transition-colors
-            ${isLoading 
-              ? 'bg-purple-500/50 cursor-not-allowed' 
-              : 'bg-purple-500 hover:bg-purple-600'
-            }`}
-        >
-          <Send size={16} className="text-white" />
-        </button>
+      <div className="flex flex-col">
+        <div className="h-[600px] flex flex-col">
+          <div className="flex-1 overflow-y-auto mb-4 space-y-4 pr-2">
+            <AnimatePresence>
+              {messages.map((message) => (
+                <motion.div
+                  key={message.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className={`flex items-start gap-3 ${
+                    message.sender === 'user' ? 'flex-row-reverse' : ''
+                  }`}
+                >
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      message.sender === 'user'
+                        ? 'bg-purple-500'
+                        : 'bg-indigo-600'
+                    }`}
+                  >
+                    {message.sender === 'user' ? (
+                      <User size={16} className="text-white" />
+                    ) : (
+                      <Bot size={16} className="text-white" />
+                    )}
+                  </div>
+                  <div className="space-y-2 max-w-[80%]">
+                    <div
+                      className={`rounded-2xl px-4 py-2 ${
+                        message.sender === 'user'
+                          ? 'bg-purple-500 text-white'
+                          : 'bg-indigo-600/50 text-purple-50'
+                      }`}
+                    >
+                      <p className="whitespace-pre-wrap">{message.content}</p>
+                    </div>
+
+                    {message.sender === 'bot' && message.metadata?.suggestions && showSuggestions && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {message.metadata.suggestions.map((suggestion, index) => (
+                          <button
+                            key={index}
+                            onClick={() => setInput(suggestion)}
+                            className="text-sm px-3 py-1 rounded-full bg-purple-900/30 text-purple-200 hover:bg-purple-800/30 transition-colors"
+                          >
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  {message.sender === 'bot' && messages.length === 1 && message.metadata?.suggestions && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {message.metadata.suggestions.map((suggestion, index) => (
+                          <button
+                            key={index}
+                            onClick={() => setInput(suggestion)}
+                            className="text-sm px-3 py-1 rounded-full bg-purple-900/30 text-purple-200 hover:bg-purple-800/30 transition-colors"
+                          >
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+            {isLoading && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex items-center gap-2 text-purple-300"
+              >
+                <div className="flex space-x-1">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" />
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
+                </div>
+                <span className="text-sm">占いの神託を読み解いています...</span>
+              </motion.div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          <div className="relative mt-4">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+              placeholder="運勢や気になることを聞いてください..."
+              className="w-full bg-purple-900/30 text-purple-100 placeholder-purple-300/50 rounded-full py-3 pl-4 pr-12 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              disabled={isLoading}
+            />
+            <button
+              onClick={handleSend}
+              disabled={isLoading}
+              className={`absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full transition-colors
+                ${isLoading 
+                  ? 'bg-purple-500/50 cursor-not-allowed' 
+                  : 'bg-purple-500 hover:bg-purple-600'
+                }`}
+            >
+              <Send size={16} className="text-white" />
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
