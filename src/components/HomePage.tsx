@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Moon, Sparkles, ArrowRight, Star, Compass, ScrollText, Users, Award, LogIn, UserPlus, Check, CreditCard } from 'lucide-react';
+import { Star, Compass, ScrollText, Users, Award, LogIn, UserPlus, Check, CreditCard, X } from 'lucide-react';
+import { useAuth } from '../auth/useAuth';
+import TestUserAuthModal from './TestUserAuthModal';
 
 const features = [
   { icon: Star, text: '占星術の専門家による監修' },
@@ -16,12 +18,10 @@ const SUBSCRIPTION_PLANS = [
     price: '9,800',
     features: [
       '四柱推命機能の無制限利用',
-      'タロット占いの無制限利用',
       '動物占いの無制限利用',
       '夢占いの無制限利用',
       '手相占いの無制限利用',
       '数秘術の無制限利用',
-      '星占いの無制限利用',
       '詳細な運勢解説',
       '24時間サポート',
       'プレミアム限定コンテンツ',
@@ -35,12 +35,10 @@ const SUBSCRIPTION_PLANS = [
     price: '4,980',
     features: [
       '四柱推命機能の利用',
-      'タロット占いの基本機能',
       '動物占いの基本機能',
       '夢占いの基本機能',
       '手相占いの基本機能',
       '数秘術の基本機能',
-      '星占いの基本機能',
       '基本的な運勢解説',
       'メールサポート'
     ],
@@ -64,20 +62,71 @@ const SUBSCRIPTION_PLANS = [
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [showTestAuthModal, setShowTestAuthModal] = useState(false);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data.type === 'SUBSCRIPTION_SUCCESS') {
+        setShowSubscriptionModal(false);
+        navigate('/fortune');
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [navigate]);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data.type === 'SUBSCRIPTION_COMPLETE') {
+        setShowSubscriptionModal(false);
+        navigate('/fortune');
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [navigate]);
+
+  const handlePlanSelect = (plan: string) => {
+    if (plan === 'test') {
+      setShowTestAuthModal(true);
+      return;
+    }
+
+    if (!user) {
+      setShowLoginPrompt(true);
+      return;
+    }
+    setSelectedPlan(plan);
+    setShowSubscriptionModal(true);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-900">
       {/* Header with Auth Buttons */}
       <div className="w-full max-w-7xl mx-auto flex justify-end p-4">
         <div className="flex gap-2 sm:gap-4">
-          <Link to="/login" className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-full bg-purple-900/50 text-purple-200 hover:bg-purple-800/50 transition-colors text-sm sm:text-base">
-            <LogIn size={16} className="sm:w-[18px] sm:h-[18px]" />
-            <span>ログイン</span>
-          </Link>
-          <Link to="/signup" className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-full bg-purple-500 text-white hover:bg-purple-600 transition-colors text-sm sm:text-base">
-            <UserPlus size={16} className="sm:w-[18px] sm:h-[18px]" />
-            <span>新規登録</span>
-          </Link>
+          {!isAuthenticated ? (
+            <>
+              <Link to="/login" className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-full bg-purple-900/50 text-purple-200 hover:bg-purple-800/50 transition-colors text-sm sm:text-base">
+                <LogIn size={16} className="sm:w-[18px] sm:h-[18px]" />
+                <span>ログイン</span>
+              </Link>
+              <Link to="/signup" className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-full bg-purple-500 text-white hover:bg-purple-600 transition-colors text-sm sm:text-base">
+                <UserPlus size={16} className="sm:w-[18px] sm:h-[18px]" />
+                <span>新規登録</span>
+              </Link>
+            </>
+          ) : (
+            <div className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full bg-purple-900/50 text-purple-200">
+              <span>{user?.email}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -96,37 +145,6 @@ export default function HomePage() {
                 <span className="text-purple-200 text-xs sm:text-sm">{feature.text}</span>
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* Divination Methods */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 max-w-4xl mx-auto mb-8 sm:mb-16 px-2 sm:px-4">
-          <div
-            onClick={() => navigate('/fortune/astrology')}
-            className="group cursor-pointer bg-purple-900/30 backdrop-blur-sm rounded-xl sm:rounded-2xl p-6 sm:p-8 border border-purple-800/30 hover:bg-purple-800/40 transition-all duration-300"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <Moon size={24} className="sm:w-8 sm:h-8 text-purple-300" />
-              <ArrowRight size={20} className="sm:w-6 sm:h-6 text-purple-400 opacity-0 group-hover:opacity-100 transform translate-x-0 group-hover:translate-x-2 transition-all duration-300" />
-            </div>
-            <h2 className="text-xl sm:text-2xl font-semibold text-purple-100 mb-2">星占い</h2>
-            <p className="text-sm sm:text-base text-purple-300">
-              最新のAI技術と占星術の専門家による、あなただけの運命診断。
-            </p>
-          </div>
-
-          <div
-            onClick={() => navigate('/fortune/tarot')}
-            className="group cursor-pointer bg-purple-900/30 backdrop-blur-sm rounded-xl sm:rounded-2xl p-6 sm:p-8 border border-purple-800/30 hover:bg-purple-800/40 transition-all duration-300"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <Sparkles size={24} className="sm:w-8 sm:h-8 text-purple-300" />
-              <ArrowRight size={20} className="sm:w-6 sm:h-6 text-purple-400 opacity-0 group-hover:opacity-100 transform translate-x-0 group-hover:translate-x-2 transition-all duration-300" />
-            </div>
-            <h2 className="text-xl sm:text-2xl font-semibold text-purple-100 mb-2">タロット占い</h2>
-            <p className="text-sm sm:text-base text-purple-300">
-              伝統的なタロット占いとAIの予測を組み合わせた、高精度な運命診断。
-            </p>
           </div>
         </div>
 
@@ -169,7 +187,7 @@ export default function HomePage() {
                   ))}
                 </ul>
                 <button
-                  onClick={() => navigate('/subscription')}
+                  onClick={() => handlePlanSelect(plan.id)}
                   className={`w-full py-2 sm:py-3 px-4 sm:px-6 rounded-lg font-medium flex items-center justify-center text-sm sm:text-base ${
                     plan.recommended
                       ? 'bg-purple-600 text-white hover:bg-purple-700'
@@ -184,17 +202,68 @@ export default function HomePage() {
               </div>
             ))}
           </div>
-
-          <div className="text-center mt-8 sm:mt-16">
-            <button
-              onClick={() => navigate('/login')}
-              className="px-6 sm:px-8 py-2 sm:py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors text-sm sm:text-base"
-            >
-              今すぐ始める
-            </button>
-          </div>
         </div>
       </div>
+
+      {/* Login Prompt Modal */}
+      {showLoginPrompt && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-purple-900 rounded-xl p-6 max-w-md w-full mx-4 relative">
+            <button
+              onClick={() => setShowLoginPrompt(false)}
+              className="absolute top-4 right-4 text-purple-200 hover:text-white"
+            >
+              <X size={24} />
+            </button>
+            <div className="text-center">
+              <h3 className="text-xl font-bold text-purple-100 mb-4">
+                ログインが必要です
+              </h3>
+              <p className="text-purple-200 mb-6">
+                プランを選択するには、ログインまたは新規登録が必要です。
+              </p>
+              <div className="flex gap-4 justify-center">
+                <Link
+                  to="/login"
+                  className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  ログイン
+                </Link>
+                <Link
+                  to="/signup"
+                  className="px-6 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+                >
+                  新規登録
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Subscription Modal */}
+      {showSubscriptionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md relative">
+            <button
+              onClick={() => setShowSubscriptionModal(false)}
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+            >
+              ×
+            </button>
+            <iframe
+              src={`/subscription?plan=${selectedPlan}`}
+              className="w-full h-[600px] border-none"
+              title="Subscription"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Test User Auth Modal */}
+      {showTestAuthModal && (
+        <TestUserAuthModal onClose={() => setShowTestAuthModal(false)} />
+      )}
     </div>
   );
 }

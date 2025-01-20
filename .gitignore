@@ -8,7 +8,9 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # Dependencies
-node_modules
+/node_modules
+/.pnp
+.pnp.js
 dist
 dist-ssr
 *.local
@@ -27,8 +29,64 @@ dist-ssr
 # Environment variables
 .env
 .env.*
+!.env.example
 !.env.example.env
-.env
 
-# Cypress environment variables
-cypress.env.json
+# Test files
+test_screenshots/
+/coverage
+.nyc_output/
+cypress/videos/
+cypress/screenshots/
+mochawesome-report/
+
+# Security
+*.pem
+*.key
+*.cert
+*.crt
+
+# Build
+/build
+/dist
+/out
+
+# Cache
+.cache/
+.temp/
+.pytest_cache/
+__pycache__/
+*.pyc
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# API keys and secrets
+.env
+.env.*
+!.env.example
+config.js
+config.ts
+secrets.json
+
+# Build files
+/dist
+/build
+/.next
+/out
+
+# Cache
+.npm/
+.eslintcache
+.stylelintcache
+
+# Temporary files
+*.log
+*.tmp
+*~

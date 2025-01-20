@@ -1,77 +1,119 @@
-interface Session {
-  userId: string;
-  token: string;
-  createdAt: number;
-}
+import Redis from 'ioredis';
+import { v4 as uuidv4 } from 'uuid';
+import { logger } from './logger';
 
 export class SessionManager {
-  private sessions: Map<string, Session>;
-  private userSessions: Map<string, Set<string>>;
-  private readonly SESSION_TIMEOUT = 7 * 24 * 60 * 60 * 1000; // 7日間
+  private redis: Redis;
+  private readonly sessionPrefix: string = 'session:';
+  private readonly userSessionPrefix: string = 'user-sessions:';
+  private readonly sessionExpiry: number;
 
-  constructor() {
-    this.sessions = new Map();
-    this.userSessions = new Map();
-  }
-
-  async createSession(userId: string, token: string): Promise<void> {
-    const session: Session = {
-      userId,
-      token,
-      createdAt: Date.now()
-    };
-
-    this.sessions.set(token, session);
-
-    // ユーザーのセッション一覧を更新
-    if (!this.userSessions.has(userId)) {
-      this.userSessions.set(userId, new Set());
-    }
-    this.userSessions.get(userId)?.add(token);
-  }
-
-  async validateSession(token: string): Promise<boolean> {
-    const session = this.sessions.get(token);
-    if (!session) {
-      return false;
-    }
-
-    const now = Date.now();
-    if (now - session.createdAt > this.SESSION_TIMEOUT) {
-      await this.invalidateSession(token);
-      return false;
-    }
-
-    return true;
-  }
-
-  async invalidateSession(token: string): Promise<void> {
-    const session = this.sessions.get(token);
-    if (session) {
-      this.sessions.delete(token);
-      const userSessions = this.userSessions.get(session.userId);
-      if (userSessions) {
-        userSessions.delete(token);
+  constructor(sessionExpiry: number = 3600) {
+    this.sessionExpiry = sessionExpiry;
+    this.redis = new Redis({
+      host: process.env.REDIS_HOST || 'localhost',
+      port: parseInt(process.env.REDIS_PORT || '6379', 10),
+      retryStrategy: (times) => {
+        const delay = Math.min(times * 50, 2000);
+        return delay;
       }
+    });
+
+    this.redis.on('error', (error) => {
+      logger.error('Redis connection error:', error);
+    });
+
+    this.redis.on('connect', () => {
+      logger.info('Connected to Redis');
+    });
+  }
+
+  public async createSession(userId: string): Promise<string> {
+    const sessionId = uuidv4();
+    const sessionKey = this.getSessionKey(sessionId);
+    const userSessionKey = this.getUserSessionKey(userId);
+
+    try {
+      // セッションの作成
+      await this.redis.set(sessionKey, userId, 'EX', this.sessionExpiry);
+      
+      // ユーザーのセッション一覧に追加
+      await this.redis.sadd(userSessionKey, sessionId);
+      await this.redis.expire(userSessionKey, this.sessionExpiry);
+
+      logger.info('Session created:', { userId, sessionId });
+      return sessionId;
+    } catch (error) {
+      logger.error('Error creating session:', error);
+      throw error;
     }
   }
 
-  async invalidateUserSessions(userId: string): Promise<void> {
-    const userSessions = this.userSessions.get(userId);
-    if (userSessions) {
-      for (const token of userSessions) {
-        await this.invalidateSession(token);
+  public async validateSession(sessionId: string): Promise<string | null> {
+    const sessionKey = this.getSessionKey(sessionId);
+
+    try {
+      const userId = await this.redis.get(sessionKey);
+      if (!userId) {
+        return null;
       }
-      this.userSessions.delete(userId);
+
+      // セッションの有効期限を更新
+      await this.redis.expire(sessionKey, this.sessionExpiry);
+      const userSessionKey = this.getUserSessionKey(userId);
+      await this.redis.expire(userSessionKey, this.sessionExpiry);
+
+      return userId;
+    } catch (error) {
+      logger.error('Error validating session:', error);
+      return null;
     }
   }
 
-  async clearExpiredSessions(): Promise<void> {
-    const now = Date.now();
-    for (const [token, session] of this.sessions.entries()) {
-      if (now - session.createdAt > this.SESSION_TIMEOUT) {
-        await this.invalidateSession(token);
+  public async removeSession(sessionId: string): Promise<void> {
+    const sessionKey = this.getSessionKey(sessionId);
+
+    try {
+      const userId = await this.redis.get(sessionKey);
+      if (userId) {
+        const userSessionKey = this.getUserSessionKey(userId);
+        await this.redis.srem(userSessionKey, sessionId);
       }
+
+      await this.redis.del(sessionKey);
+      logger.info('Session removed:', { sessionId });
+    } catch (error) {
+      logger.error('Error removing session:', error);
+      throw error;
     }
+  }
+
+  public async removeAllSessions(userId: string): Promise<void> {
+    const userSessionKey = this.getUserSessionKey(userId);
+
+    try {
+      const sessions = await this.redis.smembers(userSessionKey);
+      const pipeline = this.redis.pipeline();
+
+      sessions.forEach(sessionId => {
+        pipeline.del(this.getSessionKey(sessionId));
+      });
+
+      pipeline.del(userSessionKey);
+      await pipeline.exec();
+
+      logger.info('All sessions removed for user:', { userId });
+    } catch (error) {
+      logger.error('Error removing all sessions:', error);
+      throw error;
+    }
+  }
+
+  private getSessionKey(sessionId: string): string {
+    return `${this.sessionPrefix}${sessionId}`;
+  }
+
+  private getUserSessionKey(userId: string): string {
+    return `${this.userSessionPrefix}${userId}`;
   }
 } 

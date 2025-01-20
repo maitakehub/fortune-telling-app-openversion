@@ -23,8 +23,11 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
 
   try {
     const secret = process.env.JWT_SECRET || 'your-secret-key';
-    const decoded = jwt.verify(token, secret) as { id: string; email: string };
-    req.user = decoded;
+    const decoded = jwt.verify(token, secret) as { userId: string; email: string };
+    req.user = {
+      id: decoded.userId,
+      email: decoded.email
+    };
     next();
   } catch (error) {
     console.error('Token verification error:', error);

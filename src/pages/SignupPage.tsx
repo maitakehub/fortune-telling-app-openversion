@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { useAuth } from '@/auth/useAuth';
+import { useAuth } from '../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
-import { AuthError, ErrorType } from '@/types/errors';
+import { AuthError, ErrorType } from '../types/errors';
 
 export default function SignupPage() {
   const { signup } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
@@ -15,19 +16,32 @@ export default function SignupPage() {
     setError('');
     
     try {
-      await signup(email, password);
+      if (password !== confirmPassword) {
+        setError('パスワードが一致しません。');
+        return;
+      }
+
+      await signup(email, password, confirmPassword);
       navigate('/personal-info');
     } catch (err) {
+      console.error('Signup error:', err);
       if (err instanceof AuthError) {
-        if (err.type === ErrorType.INVALID_CREDENTIALS) {
-          setError('このメールアドレスは既に登録されています。別のメールアドレスを使用するか、ログインしてください。');
-        } else {
-          setError(err.message);
+        switch (err.type) {
+          case ErrorType.VALIDATION:
+            setError('入力内容が正しくありません。メールアドレスとパスワードを確認してください。');
+            break;
+          case ErrorType.DUPLICATE:
+            setError('このメールアドレスは既に登録されています。別のメールアドレスを使用するか、ログインしてください。');
+            break;
+          case ErrorType.NETWORK:
+            setError('ネットワークエラーが発生しました。インターネット接続を確認してください。');
+            break;
+          default:
+            setError('新規登録に失敗しました。しばらく時間をおいて再度お試しください。');
         }
       } else {
-        setError('新規登録に失敗しました。しばらく時間をおいて再度お試しください。');
+        setError('予期せぬエラーが発生しました。しばらく時間をおいて再度お試しください。');
       }
-      console.error('Signup error:', err);
     }
   };
 
@@ -87,6 +101,24 @@ export default function SignupPage() {
                 placeholder="8文字以上の英数字"
                 required
                 minLength={8}
+                autoComplete="new-password"
+              />
+            </div>
+            <div>
+              <label htmlFor="confirmPassword" className="text-purple-200 block mb-1 font-medium">
+                パスワード（確認）
+              </label>
+              <input
+                type="password"
+                id="confirmPassword"
+                data-testid="confirm-password-input"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full px-4 py-2 bg-white/90 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                placeholder="パスワードを再入力"
+                required
+                minLength={8}
+                autoComplete="new-password"
               />
             </div>
           </div>

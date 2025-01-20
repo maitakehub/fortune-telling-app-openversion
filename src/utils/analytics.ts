@@ -1,6 +1,16 @@
 import { FortuneHistory, FortuneReading, FortuneType } from '../types';
+import { FORTUNE_CONSTANTS } from '../constants/fortune';
+import { getGeminiResponse } from './ai/gemini';
 
-interface AnalysisResult {
+type FortuneTypeRecord<T> = {
+  [K in FortuneType]: T;
+};
+
+type AspectRecord<T> = {
+  [K in typeof FORTUNE_CONSTANTS.ASPECTS[keyof typeof FORTUNE_CONSTANTS.ASPECTS]]: T;
+};
+
+export interface AnalysisResult {
   trends: {
     period: string;
     trend: 'up' | 'down' | 'stable';
@@ -26,6 +36,31 @@ interface AnalysisResult {
   }[];
 }
 
+interface AnalyticsResult {
+  trends: {
+    overall: string[];
+    byType: FortuneTypeRecord<string[]>;
+  };
+  patterns: {
+    frequency: Record<string, number>;
+    correlations: Record<string, number>;
+    seasonality: Record<string, any>;
+  };
+  recommendations: string[];
+  statistics: {
+    totalReadings: number;
+    averageScore?: number;
+    typeDistribution: FortuneTypeRecord<number>;
+    aspectTrends: AspectRecord<number>;
+  };
+}
+
+interface AnalyticsOptions {
+  period?: 'day' | 'week' | 'month' | 'year';
+  includeSeasonality?: boolean;
+  minReadingsForAnalysis?: number;
+}
+
 /**
  * 高度な分析機能を提供するクラス
  */
@@ -33,7 +68,7 @@ export class FortuneAnalytics {
   /**
    * 時系列分析を実行
    */
-  analyzeTimeSeries(history: FortuneHistory): AnalysisResult {
+  async analyzeTimeSeries(history: FortuneHistory): Promise<AnalysisResult> {
     const readings = history.readings;
     const result: AnalysisResult = {
       trends: [],
@@ -57,8 +92,13 @@ export class FortuneAnalytics {
     // 相関関係の分析
     result.correlations = this.analyzeCorrelations(readings);
 
-    // 予測生成
-    result.predictions = this.generatePredictions(readings);
+    // AIを活用した予測生成
+    const aiPredictions = await this.generateAIPredictions(readings);
+    result.predictions = [
+      ...aiPredictions,
+      ...this.generateTrendPredictions(readings),
+      ...this.generatePatternPredictions(readings)
+    ];
 
     return result;
   }
@@ -470,4 +510,464 @@ export class FortuneAnalytics {
 
     return predictions;
   }
+
+  /**
+   * AIを活用した予測生成
+   */
+  private async generateAIPredictions(readings: FortuneHistory['readings']): Promise<AnalysisResult['predictions']> {
+    const recentReadings = readings.slice(-10);
+    if (recentReadings.length < 3) return [];
+
+    const systemPrompt = `
+あなたは占い師として、過去の占い結果から将来の予測を行います。
+以下の点に注意して予測を生成してください：
+
+1. 過去のパターンと傾向を分析
+2. 各分野（総合運、恋愛運、仕事運など）の変化を考慮
+3. 具体的な時期と可能性を提示
+4. 予測の根拠を明確に説明
+`;
+
+    const userPrompt = `
+過去の占い結果：
+${recentReadings.map(r => `
+日時: ${new Date(r.timestamp).toLocaleDateString()}
+種類: ${getFortuneTypeName(r.type)}
+結果: ${r.result.reading}
+`).join('\n')}
+
+以下の形式で予測を生成してください：
+{
+  "predictions": [
+    {
+      "aspect": "予測の分野",
+      "likelihood": 0.1-1.0の確率,
+      "timeframe": "予測の時期",
+      "basis": ["予測の根拠1", "予測の根拠2"]
+    }
+  ]
+}`;
+
+    try {
+      const response = await getGeminiResponse(systemPrompt, userPrompt);
+      if (response.error) throw response.error;
+
+      const aiPredictions = JSON.parse(response.content);
+      return aiPredictions.predictions;
+    } catch (error) {
+      console.error('AI予測の生成に失敗しました:', error);
+      return this.generateTrendPredictions(readings);
+    }
+  }
+}
+
+/**
+ * 占い結果を分析する
+ */
+export function analyzeFortuneReadings(
+  readings: FortuneReading[],
+  options: AnalyticsOptions = {}
+): AnalyticsResult {
+  const {
+    period = 'month',
+    includeSeasonality = true,
+    minReadingsForAnalysis = 5
+  } = options;
+
+  if (readings.length < minReadingsForAnalysis) {
+    return createEmptyAnalytics();
+  }
+
+  // 基本統計の計算
+  const statistics = calculateStatistics(readings);
+
+  // トレンド分析
+  const trends = analyzeTrends(readings, period);
+
+  // パターン検出
+  const patterns = detectPatterns(readings, includeSeasonality);
+
+  // レコメンデーション生成
+  const recommendations = generateRecommendations(trends, patterns, statistics);
+
+  return {
+    trends,
+    patterns,
+    recommendations,
+    statistics
+  };
+}
+
+/**
+ * 基本統計を計算
+ */
+function calculateStatistics(readings: FortuneReading[]) {
+  const typeDistribution = Object.values(FORTUNE_CONSTANTS.TYPES).reduce(
+    (acc, type) => ({ ...acc, [type]: 0 }),
+    {} as FortuneTypeRecord<number>
+  );
+
+  const aspectTrends = Object.values(FORTUNE_CONSTANTS.ASPECTS).reduce(
+    (acc, aspect) => ({ ...acc, [aspect]: 0 }),
+    {} as AspectRecord<number>
+  );
+
+  readings.forEach(reading => {
+    // 占いの種類の分布
+    typeDistribution[reading.type]++;
+
+    // 運勢の分野ごとの傾向
+    if ('aspects' in reading) {
+      const aspects = reading.aspects as Record<string, string>;
+      Object.keys(aspects).forEach(aspect => {
+        if (aspect in aspectTrends) {
+          const score = calculateAspectScore(aspects[aspect]);
+          aspectTrends[aspect as keyof AspectRecord<number>] += score;
+        }
+      });
+    }
+  });
+
+  return {
+    totalReadings: readings.length,
+    typeDistribution,
+    aspectTrends: normalizeAspectTrends(aspectTrends, readings.length)
+  };
+}
+
+/**
+ * トレンドを分析
+ */
+function analyzeTrends(readings: FortuneReading[], period: string) {
+  const overall: string[] = [];
+  const byType = Object.values(FORTUNE_CONSTANTS.TYPES).reduce(
+    (acc, type) => ({ ...acc, [type]: [] }),
+    {} as FortuneTypeRecord<string[]>
+  );
+
+  // 期間でグループ化
+  const groupedReadings = groupReadingsByPeriod(readings, period);
+
+  // 全体的なトレンド
+  const overallTrend = calculateOverallTrend(groupedReadings);
+  overall.push(...overallTrend);
+
+  // 占いの種類ごとのトレンド
+  Object.values(FORTUNE_CONSTANTS.TYPES).forEach(type => {
+    const typeReadings = readings.filter(r => r.type === type);
+    const typeTrend = calculateTypeTrend(typeReadings);
+    byType[type].push(...typeTrend);
+  });
+
+  return { overall, byType };
+}
+
+/**
+ * パターンを検出
+ */
+function detectPatterns(readings: FortuneReading[], includeSeasonality: boolean) {
+  const patterns = {
+    frequency: calculateFrequencyPatterns(readings),
+    correlations: calculateCorrelations(readings),
+    seasonality: includeSeasonality ? analyzeSeasonality(readings) : {}
+  };
+
+  return patterns;
+}
+
+/**
+ * レコメンデーションを生成
+ */
+function generateRecommendations(
+  trends: AnalyticsResult['trends'],
+  patterns: AnalyticsResult['patterns'],
+  statistics: AnalyticsResult['statistics']
+): string[] {
+  const recommendations: string[] = [];
+
+  // 全体的なトレンドに基づくレコメンデーション
+  if (trends.overall.length > 0) {
+    recommendations.push(
+      `全体的な傾向として${trends.overall[0]}が見られます。`
+    );
+  }
+
+  // 最も頻度の高い占いタイプに基づくレコメンデーション
+  const mostFrequentType = Object.entries(statistics.typeDistribution)
+    .sort(([, a], [, b]) => b - a)[0][0];
+  recommendations.push(
+    `${getFortuneTypeName(mostFrequentType)}の占いとの相性が特に良いようです。`
+  );
+
+  // 運勢の分野に基づくレコメンデーション
+  const strongestAspect = Object.entries(statistics.aspectTrends)
+    .sort(([, a], [, b]) => b - a)[0][0];
+  recommendations.push(
+    `${getAspectName(strongestAspect)}に関する運勢が特に良好です。`
+  );
+
+  return recommendations;
+}
+
+/**
+ * 空の分析結果を作成
+ */
+function createEmptyAnalytics(): AnalyticsResult {
+  const emptyTypeDistribution = Object.values(FORTUNE_CONSTANTS.TYPES).reduce(
+    (acc, type) => ({ ...acc, [type]: 0 }),
+    {} as FortuneTypeRecord<number>
+  );
+
+  const emptyTypeArray = Object.values(FORTUNE_CONSTANTS.TYPES).reduce(
+    (acc, type) => ({ ...acc, [type]: [] }),
+    {} as FortuneTypeRecord<string[]>
+  );
+
+  const emptyAspectTrends = Object.values(FORTUNE_CONSTANTS.ASPECTS).reduce(
+    (acc, aspect) => ({ ...acc, [aspect]: 0 }),
+    {} as AspectRecord<number>
+  );
+
+  return {
+    trends: {
+      overall: [],
+      byType: emptyTypeArray
+    },
+    patterns: {
+      frequency: {},
+      correlations: {},
+      seasonality: {}
+    },
+    recommendations: ['十分なデータがありません。'],
+    statistics: {
+      totalReadings: 0,
+      typeDistribution: emptyTypeDistribution,
+      aspectTrends: emptyAspectTrends
+    }
+  };
+}
+
+// ユーティリティ関数
+
+function calculateAspectScore(aspect: string): number {
+  const positiveWords = ['上昇', '好調', '幸運', '良い', '成功'];
+  const negativeWords = ['下降', '不調', '不運', '悪い', '失敗'];
+
+  let score = 50; // 基準値
+  positiveWords.forEach(word => {
+    if (aspect.includes(word)) score += 10;
+  });
+  negativeWords.forEach(word => {
+    if (aspect.includes(word)) score -= 10;
+  });
+
+  return Math.max(0, Math.min(100, score));
+}
+
+/**
+ * 運勢の分野ごとの傾向を正規化
+ */
+function normalizeAspectTrends(trends: AspectRecord<number>, totalReadings: number): AspectRecord<number> {
+  return Object.entries(trends).reduce(
+    (acc, [aspect, value]) => ({
+      ...acc,
+      [aspect]: totalReadings > 0 ? value / totalReadings : 0
+    }),
+    {} as AspectRecord<number>
+  );
+}
+
+function groupReadingsByPeriod(readings: FortuneReading[], period: string) {
+  const grouped: Record<string, FortuneReading[]> = {};
+  readings.forEach(reading => {
+    const date = new Date(reading.timestamp);
+    let key: string;
+
+    switch (period) {
+      case 'day':
+        key = date.toISOString().split('T')[0];
+        break;
+      case 'week':
+        const weekStart = new Date(date);
+        weekStart.setDate(date.getDate() - date.getDay());
+        key = weekStart.toISOString().split('T')[0];
+        break;
+      case 'month':
+        key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        break;
+      case 'year':
+        key = String(date.getFullYear());
+        break;
+      default:
+        key = date.toISOString().split('T')[0];
+    }
+
+    if (!grouped[key]) {
+      grouped[key] = [];
+    }
+    grouped[key].push(reading);
+  });
+
+  return grouped;
+}
+
+function calculateOverallTrend(
+  groupedReadings: Record<string, FortuneReading[]>
+): string[] {
+  const trends: string[] = [];
+  const periods = Object.keys(groupedReadings).sort();
+
+  if (periods.length < 2) return trends;
+
+  let positiveCount = 0;
+  let negativeCount = 0;
+
+  periods.forEach(period => {
+    const readings = groupedReadings[period];
+    readings.forEach(reading => {
+      if ('aspects' in reading) {
+        const aspects = reading.aspects as Record<string, string>;
+        Object.values(aspects).forEach(aspect => {
+          const score = calculateAspectScore(aspect);
+          if (score > 60) positiveCount++;
+          if (score < 40) negativeCount++;
+        });
+      }
+    });
+  });
+
+  if (positiveCount > negativeCount * 1.5) {
+    trends.push('上昇傾向');
+  } else if (negativeCount > positiveCount * 1.5) {
+    trends.push('調整期');
+  } else {
+    trends.push('安定期');
+  }
+
+  return trends;
+}
+
+function calculateTypeTrend(readings: FortuneReading[]): string[] {
+  const trends: string[] = [];
+  if (readings.length < 3) return trends;
+
+  // 最新の3件を分析
+  const recent = readings.slice(-3);
+  const scores = recent.map(reading => {
+    if ('aspects' in reading) {
+      const aspects = reading.aspects as Record<string, string>;
+      return Object.values(aspects).reduce((sum, aspect) => {
+        return sum + calculateAspectScore(aspect);
+      }, 0) / Object.keys(aspects).length;
+    }
+    return 50;
+  });
+
+  const average = scores.reduce((a, b) => a + b, 0) / scores.length;
+  if (average > 60) {
+    trends.push('好調');
+  } else if (average < 40) {
+    trends.push('要注意');
+  } else {
+    trends.push('平常');
+  }
+
+  return trends;
+}
+
+function calculateFrequencyPatterns(readings: FortuneReading[]) {
+  const frequency: Record<string, number> = {};
+  readings.forEach(reading => {
+    frequency[reading.type] = (frequency[reading.type] || 0) + 1;
+  });
+  return frequency;
+}
+
+function calculateCorrelations(readings: FortuneReading[]) {
+  const correlations: Record<string, number> = {};
+  if (readings.length < 2) return correlations;
+
+  readings.forEach((reading, i) => {
+    if (i === 0) return;
+    const prev = readings[i - 1];
+    if ('aspects' in reading && 'aspects' in prev) {
+      const currentAspects = reading.aspects as Record<string, string>;
+      const prevAspects = prev.aspects as Record<string, string>;
+      Object.keys(currentAspects).forEach(aspect => {
+        const currentScore = calculateAspectScore(currentAspects[aspect]);
+        const prevScore = calculateAspectScore(prevAspects[aspect]);
+        correlations[aspect] = (correlations[aspect] || 0) + 
+          (Math.abs(currentScore - prevScore) < 20 ? 1 : 0);
+      });
+    }
+  });
+
+  return correlations;
+}
+
+function analyzeSeasonality(readings: FortuneReading[]) {
+  const seasonality: Record<string, any> = {
+    monthly: {},
+    dayOfWeek: {}
+  };
+
+  readings.forEach(reading => {
+    const date = new Date(reading.timestamp);
+    const month = date.getMonth();
+    const dayOfWeek = date.getDay();
+
+    if ('aspects' in reading) {
+      const aspects = reading.aspects as Record<string, string>;
+      Object.entries(aspects).forEach(([aspect, value]) => {
+        const score = calculateAspectScore(value);
+
+        // 月別の傾向
+        if (!seasonality.monthly[month]) {
+          seasonality.monthly[month] = { count: 0, total: 0 };
+        }
+        seasonality.monthly[month].count++;
+        seasonality.monthly[month].total += score;
+
+        // 曜日別の傾向
+        if (!seasonality.dayOfWeek[dayOfWeek]) {
+          seasonality.dayOfWeek[dayOfWeek] = { count: 0, total: 0 };
+        }
+        seasonality.dayOfWeek[dayOfWeek].count++;
+        seasonality.dayOfWeek[dayOfWeek].total += score;
+      });
+    }
+  });
+
+  // 平均値の計算
+  Object.values(seasonality).forEach(category => {
+    Object.keys(category).forEach(key => {
+      const { count, total } = category[key];
+      category[key] = count > 0 ? total / count : 0;
+    });
+  });
+
+  return seasonality;
+}
+
+function getFortuneTypeName(type: string): string {
+  const names: Record<string, string> = {
+    numerology: '数秘術',
+    tarot: 'タロット',
+    palm: '手相',
+    dream: '夢占い',
+    compatibility: '相性占い',
+    fortune: '運勢占い'
+  };
+  return names[type] || type;
+}
+
+function getAspectName(aspect: string): string {
+  const names: Record<string, string> = {
+    general: '総合運',
+    love: '恋愛運',
+    work: '仕事運',
+    health: '健康運',
+    money: '金運'
+  };
+  return names[aspect] || aspect;
 } 

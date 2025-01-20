@@ -104,7 +104,7 @@ class AppStarter:
                             # サーバーが起動したことを確認
                             time.sleep(2)  # 少し待機してヘルスチェック
                             try:
-                                response = requests.get("http://localhost:3001/api/health")
+                                response = requests.get("http://localhost:3000/api/health")
                                 if response.status_code == 200:
                                     logging.info("Backend started successfully")
                                     return True

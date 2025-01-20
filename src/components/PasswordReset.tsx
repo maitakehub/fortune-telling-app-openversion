@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { requestPasswordReset, validateResetToken, resetPassword } from '../auth/AuthService';
+import { toast } from 'react-toastify';
 
 interface FormState {
   email: string;
@@ -15,31 +16,55 @@ interface FormErrors {
   general?: string;
 }
 
-export function PasswordReset() {
-  const { token } = useParams();
+export const PasswordReset: React.FC = () => {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState<FormState>({
+  const { token } = useParams();
+  const [formState, setFormState] = useState<FormState>({
     email: '',
     newPassword: '',
-    confirmPassword: '',
+    confirmPassword: ''
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const [tokenValid, setTokenValid] = useState(false);
+
+  useEffect(() => {
+    const checkToken = async () => {
+      if (token) {
+        try {
+          const isValid = await validateResetToken(token);
+          setTokenValid(isValid);
+        } catch (err) {
+          console.error('Token validation failed:', err);
+          setTokenValid(false);
+        }
+      }
+    };
+
+    if (token) {
+      checkToken();
+    }
+  }, [token]);
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
-    if (!token && !formData.email) {
+    if (!token && !formState.email) {
       newErrors.email = 'メールアドレスを入力してください';
+    } else if (!token && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formState.email)) {
+      newErrors.email = '有効なメールアドレスを入力してください';
     }
+
     if (token) {
-      if (!formData.newPassword) {
+      if (!formState.newPassword) {
         newErrors.newPassword = '新しいパスワードを入力してください';
-      } else if (formData.newPassword.length < 8) {
+      } else if (formState.newPassword.length < 8) {
         newErrors.newPassword = 'パスワードは8文字以上である必要があります';
       }
-      if (formData.newPassword !== formData.confirmPassword) {
+
+      if (!formState.confirmPassword) {
+        newErrors.confirmPassword = 'パスワードを確認してください';
+      } else if (formState.newPassword !== formState.confirmPassword) {
         newErrors.confirmPassword = 'パスワードが一致しません';
       }
     }
@@ -53,29 +78,23 @@ export function PasswordReset() {
     if (!validateForm()) return;
 
     setLoading(true);
-    setMessage('');
-    setErrors({});
-
     try {
-      if (!token) {
-        // パスワードリセットメールの送信
-        await requestPasswordReset(formData.email);
-        setMessage('パスワードリセットの手順をメールで送信しました');
+      if (token) {
+        // パスワードのリセット
+        await resetPassword(token, formState.newPassword);
+        toast.success('パスワードが正常に更新されました');
+        navigate('/login');
       } else {
-        // トークンの検証とパスワードの更新
-        const isValid = await validateResetToken(token);
-        if (!isValid) {
-          setErrors({ general: '無効または期限切れのトークンです' });
-          return;
-        }
-        await resetPassword(token, formData.newPassword);
-        setMessage('パスワードが正常に更新されました');
-        setTimeout(() => navigate('/login'), 2000);
+        // リセットリンクの送信
+        await requestPasswordReset(formState.email);
+        toast.success('パスワードリセットのリンクをメールで送信しました');
       }
-    } catch (error) {
+    } catch (err) {
+      console.error('Password reset failed:', err);
       setErrors({
-        general: error instanceof Error ? error.message : 'エラーが発生しました'
+        general: err instanceof Error ? err.message : 'パスワードのリセットに失敗しました'
       });
+      toast.error('エラーが発生しました');
     } finally {
       setLoading(false);
     }
@@ -83,115 +102,125 @@ export function PasswordReset() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormState(prev => ({ ...prev, [name]: value }));
+    // 入力時にエラーをクリア
+    if (errors[name as keyof FormErrors]) {
+      setErrors(prev => ({ ...prev, [name]: undefined }));
+    }
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-sm sm:max-w-md w-full space-y-6 sm:space-y-8">
-        <div>
-          <h2 className="mt-4 sm:mt-6 text-center text-2xl sm:text-3xl font-extrabold text-gray-900">
-            {token ? 'パスワードの再設定' : 'パスワードリセット'}
-          </h2>
-        </div>
-        <form className="mt-6 sm:mt-8 space-y-4 sm:space-y-6" onSubmit={handleSubmit}>
-          {errors.general && (
-            <div className="rounded-md bg-red-50 p-3 sm:p-4">
-              <div className="text-sm text-red-700">{errors.general}</div>
-            </div>
-          )}
-          {message && (
-            <div className="rounded-md bg-green-50 p-3 sm:p-4">
-              <div className="text-sm text-green-700">{message}</div>
-            </div>
-          )}
-          <div className="rounded-md shadow-sm -space-y-px">
-            {!token && (
-              <div>
-                <label htmlFor="email" className="sr-only">メールアドレス</label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  className={`appearance-none rounded-md relative block w-full px-3 py-2 sm:py-3 border ${
-                    errors.email ? 'border-red-300' : 'border-gray-300'
-                  } placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 text-sm sm:text-base`}
-                  placeholder="メールアドレス"
-                  value={formData.email}
-                  onChange={handleChange}
-                />
-                {errors.email && (
-                  <p className="mt-2 text-xs sm:text-sm text-red-600">{errors.email}</p>
-                )}
-              </div>
-            )}
-            {token && (
-              <>
-                <div>
-                  <label htmlFor="newPassword" className="sr-only">新しいパスワード</label>
-                  <input
-                    id="newPassword"
-                    name="newPassword"
-                    type="password"
-                    autoComplete="new-password"
-                    required
-                    className={`appearance-none rounded-md relative block w-full px-3 py-2 sm:py-3 border ${
-                      errors.newPassword ? 'border-red-300' : 'border-gray-300'
-                    } placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 text-sm sm:text-base mb-3 sm:mb-4`}
-                    placeholder="新しいパスワード"
-                    value={formData.newPassword}
-                    onChange={handleChange}
-                  />
-                  {errors.newPassword && (
-                    <p className="mt-2 text-xs sm:text-sm text-red-600">{errors.newPassword}</p>
-                  )}
-                </div>
-                <div>
-                  <label htmlFor="confirmPassword" className="sr-only">パスワードの確認</label>
-                  <input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type="password"
-                    autoComplete="new-password"
-                    required
-                    className={`appearance-none rounded-md relative block w-full px-3 py-2 sm:py-3 border ${
-                      errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
-                    } placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 text-sm sm:text-base`}
-                    placeholder="パスワードの確認"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                  />
-                  {errors.confirmPassword && (
-                    <p className="mt-2 text-xs sm:text-sm text-red-600">{errors.confirmPassword}</p>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-
-          <div>
+  if (token && !tokenValid) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-900 flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-xl p-8">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              無効なリンク
+            </h2>
+            <p className="text-gray-600 mb-6">
+              このパスワードリセットリンクは無効であるか、期限が切れています。
+            </p>
             <button
-              type="submit"
-              disabled={loading}
-              className={`group relative w-full flex justify-center py-2 sm:py-3 px-4 sm:px-6 border border-transparent text-sm sm:text-base font-medium rounded-md text-white ${
-                loading ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-700'
-              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500`}
+              onClick={() => navigate('/password-reset')}
+              className="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors"
             >
-              {loading ? (
-                <span className="absolute left-0 inset-y-0 flex items-center pl-3">
-                  <svg className="animate-spin h-4 w-4 sm:h-5 sm:w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                </span>
-              ) : null}
-              {token ? 'パスワードを更新' : 'リセットメールを送信'}
+              新しいリセットリンクを要求
             </button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-900 flex items-center justify-center px-4">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-xl p-8">
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-gray-900">
+            {token ? 'パスワードの再設定' : 'パスワードリセット'}
+          </h2>
+          <p className="text-gray-600 mt-2">
+            {token
+              ? '新しいパスワードを入力してください'
+              : 'パスワードリセットのリンクをメールで送信します'}
+          </p>
+        </div>
+
+        {errors.general && (
+          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
+            {errors.general}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {!token && (
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                メールアドレス
+              </label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={formState.email}
+                onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+              />
+              {errors.email && (
+                <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+              )}
+            </div>
+          )}
+
+          {token && (
+            <>
+              <div>
+                <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">
+                  新しいパスワード
+                </label>
+                <input
+                  type="password"
+                  id="newPassword"
+                  name="newPassword"
+                  value={formState.newPassword}
+                  onChange={handleChange}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                />
+                {errors.newPassword && (
+                  <p className="mt-1 text-sm text-red-600">{errors.newPassword}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                  パスワードの確認
+                </label>
+                <input
+                  type="password"
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  value={formState.confirmPassword}
+                  onChange={handleChange}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                />
+                {errors.confirmPassword && (
+                  <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>
+                )}
+              </div>
+            </>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
+          >
+            {loading
+              ? (token ? 'パスワードを更新中...' : 'リンクを送信中...')
+              : (token ? 'パスワードを更新' : 'リセットリンクを送信')}
+          </button>
         </form>
       </div>
     </div>
   );
-} 
+}; 

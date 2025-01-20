@@ -10,6 +10,7 @@ from datetime import datetime
 import sys
 import subprocess
 from pathlib import Path
+import requests
 
 # AppStarterをインポート
 sys.path.append(str(Path(__file__).parent.parent))
@@ -19,20 +20,21 @@ class FortuneTellingAppTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """テストクラス全体の前処理"""
-        print("Starting test setup...")  # デバッグ出力
+        print("Starting test setup...")
         try:
+            # 環境変数の設定
+            os.environ['NODE_ENV'] = 'test'
+            
+            # データベースのクリーンアップ
+            try:
+                response = requests.get('http://localhost:3000/api/user/db/cleanup')
+                print(f"Initial cleanup response: {response.json()}")
+            except Exception as e:
+                print(f"Initial cleanup failed: {e}")
+
             cls.app_starter = AppStarter()
-            print("AppStarter instance created")  # 追加
-            
-            # タイムアウトを設定して起動
-            start_timeout = 180  # 3分
-            start_time = time.time()
-            
             if not cls.app_starter.start():
                 raise Exception("Failed to start application")
-            
-            if time.time() - start_time > start_timeout:
-                raise TimeoutError("Application startup timed out")
             
             print("App starter initialized and started")
             
@@ -43,8 +45,18 @@ class FortuneTellingAppTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         """テストクラス全体の後処理"""
+        # テストユーザーのクリーンアップ
+        try:
+            response = requests.get('http://localhost:3000/api/user/db/cleanup')
+            print(f"Final cleanup response: {response.json()}")
+        except Exception as e:
+            print(f"Final cleanup failed: {e}")
+        
         if hasattr(cls, 'app_starter'):
             cls.app_starter.cleanup()
+        
+        if hasattr(cls, 'driver'):
+            cls.driver.quit()
 
     def setUp(self):
         """各テストケースの前処理"""

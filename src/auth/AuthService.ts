@@ -6,6 +6,7 @@ import { User, UserRole } from '../types/user';
 interface LoginSignupResponse {
   message: string;
   token: string;
+  refreshToken: string;
   user: User;
 }
 
@@ -21,23 +22,34 @@ interface DecodedToken {
 
 interface SessionInfo {
   token: string;
+  refreshToken: string;
   lastActivity: number;
   expiresAt: number;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const SESSION_TIMEOUT = 30 * 60 * 1000; // 30分
 const SESSION_KEY = 'session_info';
+const REFRESH_THRESHOLD = 5 * 60 * 1000; // 5分前にリフレッシュ
 
 // セッション情報を保存
-function saveSessionInfo(token: string): void {
+function saveSessionInfo(token: string, refreshToken: string): void {
   const decoded = jwtDecode<DecodedToken>(token);
   const sessionInfo: SessionInfo = {
     token,
+    refreshToken,
     lastActivity: Date.now(),
     expiresAt: decoded.exp * 1000,
   };
-  localStorage.setItem(SESSION_KEY, JSON.stringify(sessionInfo));
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(sessionInfo));
+  } catch (error) {
+    console.error('Failed to save session info:', error);
+    throw new AuthError(
+      ErrorType.STORAGE_ERROR,
+      AUTH_CONSTANTS.ERROR_MESSAGES.STORAGE_ERROR
+    );
+  }
 }
 
 // セッション情報を取得
@@ -47,7 +59,9 @@ function getSessionInfo(): SessionInfo | null {
   
   try {
     return JSON.parse(stored);
-  } catch {
+  } catch (error) {
+    console.error('Failed to parse session info:', error);
+    clearSession();
     return null;
   }
 }
@@ -64,19 +78,36 @@ function isSessionValid(): boolean {
   return !isExpired && !isInactive;
 }
 
+// リフレッシュが必要かチェック
+function needsRefresh(): boolean {
+  const sessionInfo = getSessionInfo();
+  if (!sessionInfo) return false;
+
+  const now = Date.now();
+  return sessionInfo.expiresAt - now <= REFRESH_THRESHOLD;
+}
+
 // セッションの最終アクティビティを更新
 function updateLastActivity(): void {
   const sessionInfo = getSessionInfo();
   if (sessionInfo) {
     sessionInfo.lastActivity = Date.now();
-    localStorage.setItem(SESSION_KEY, JSON.stringify(sessionInfo));
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(sessionInfo));
+    } catch (error) {
+      console.error('Failed to update last activity:', error);
+    }
   }
 }
 
 // セッションをクリア
 function clearSession(): void {
-  localStorage.removeItem(SESSION_KEY);
-  localStorage.removeItem(AUTH_CONSTANTS.TOKEN_KEY);
+  try {
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(AUTH_CONSTANTS.TOKEN_KEY);
+  } catch (error) {
+    console.error('Failed to clear session:', error);
+  }
 }
 
 async function handleApiError(response: Response): Promise<never> {
@@ -97,7 +128,7 @@ async function handleApiError(response: Response): Promise<never> {
   );
 }
 
-export async function loginRequest(email: string, password: string): Promise<{ token: string; user: User }> {
+export async function loginRequest(email: string, password: string): Promise<{ token: string; refreshToken: string; user: User }> {
   const response = await fetch(`${API_URL}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -105,18 +136,33 @@ export async function loginRequest(email: string, password: string): Promise<{ t
   });
 
   if (!response.ok) {
-    await handleApiError(response);
+    const errorData = await response.json();
+    throw new AuthError(
+      errorData.type || ErrorType.SERVER_ERROR,
+      errorData.message || AUTH_CONSTANTS.ERROR_MESSAGES.SERVER_ERROR
+    );
   }
 
-  const data: LoginSignupResponse = await response.json();
-  saveSessionInfo(data.token);
+  const data = await response.json();
+  
+  // セッション情報を保存
+  saveSessionInfo(data.token, data.refreshToken);
+  
   return {
     token: data.token,
-    user: data.user,
+    refreshToken: data.refreshToken,
+    user: {
+      id: data.user.id,
+      email: data.user.email,
+      role: data.user.role,
+      isSubscribed: data.user.isSubscribed,
+      createdAt: data.user.createdAt,
+      updatedAt: data.user.updatedAt
+    }
   };
 }
 
-export async function signupRequest(email: string, password: string): Promise<{ token: string; user: User }> {
+export async function signupRequest(email: string, password: string): Promise<{ token: string; refreshToken: string; user: User }> {
   const response = await fetch(`${API_URL}/api/auth/signup`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -124,34 +170,74 @@ export async function signupRequest(email: string, password: string): Promise<{ 
   });
 
   if (!response.ok) {
-    await handleApiError(response);
+    const errorData = await response.json();
+    throw new AuthError(
+      errorData.type || ErrorType.SERVER_ERROR,
+      errorData.message || AUTH_CONSTANTS.ERROR_MESSAGES.SERVER_ERROR
+    );
   }
 
-  const data: LoginSignupResponse = await response.json();
-  saveSessionInfo(data.token);
+  const data = await response.json();
+  
+  // セッション情報を保存
+  saveSessionInfo(data.token, data.refreshToken);
+  
   return {
     token: data.token,
-    user: data.user,
+    refreshToken: data.refreshToken,
+    user: {
+      id: data.user.id,
+      email: data.user.email,
+      role: data.user.role,
+      isSubscribed: data.user.isSubscribed,
+      createdAt: data.user.createdAt,
+      updatedAt: data.user.updatedAt
+    }
   };
 }
 
-export async function logoutRequest() {
-  clearSession();
-  
-  // バックエンドにもログアウトを通知
+export async function refreshTokenRequest(): Promise<{ token: string; refreshToken: string }> {
   const sessionInfo = getSessionInfo();
-  if (sessionInfo?.token) {
-    try {
-      await fetch(`${API_URL}/api/auth/logout`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${sessionInfo.token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-    } catch (error) {
-      console.error('Logout notification failed:', error);
+  if (!sessionInfo?.refreshToken) {
+    throw new AuthError(
+      ErrorType.REFRESH_TOKEN_MISSING,
+      AUTH_CONSTANTS.ERROR_MESSAGES.REFRESH_TOKEN_MISSING
+    );
+  }
+
+  const response = await fetch(`${API_URL}/api/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken: sessionInfo.refreshToken }),
+  });
+
+  if (!response.ok) {
+    await handleApiError(response);
+  }
+
+  const data = await response.json();
+  saveSessionInfo(data.token, data.refreshToken);
+  return {
+    token: data.token,
+    refreshToken: data.refreshToken,
+  };
+}
+
+export async function logoutRequest(token: string): Promise<void> {
+  const response = await fetch(`${API_URL}/api/auth/logout`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
     }
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new AuthError(
+      errorData.type || ErrorType.SERVER_ERROR,
+      errorData.message || AUTH_CONSTANTS.ERROR_MESSAGES.SERVER_ERROR
+    );
   }
 }
 
@@ -167,6 +253,10 @@ export function getCurrentUserFromToken(token: string): User | null {
 
     const decoded = jwtDecode<DecodedToken>(token);
     updateLastActivity();
+    
+    if (needsRefresh()) {
+      refreshTokenRequest().catch(console.error);
+    }
     
     return {
       id: decoded.userId,

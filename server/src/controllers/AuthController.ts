@@ -2,189 +2,274 @@ import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
 import { RateLimiter } from '../utils/RateLimiter';
-import { SessionManager } from '../utils/SessionManager';
+import { SessionManager } from '../services/SessionManager';
 import { ErrorType } from '../types/errors';
+import { ErrorMessages } from '../constants/errorMessages';
+import { AppError, ValidationError, AuthError } from '../types/errors';
+import { generateToken, generateRefreshToken } from '../utils/auth';
+import bcrypt from 'bcrypt';
+import { createLogger } from '../utils/logger';
+import { getErrorMessage } from '../constants/errorMessages';
 
+const logger = createLogger('AuthController');
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const loginLimiter = new RateLimiter(5, 60 * 1000); // 1分間に5回まで
-const sessionManager = new SessionManager();
+const SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS || '10', 10);
+
+interface SignupData {
+  email: string;
+  password: string;
+}
+
+interface LoginData {
+  email: string;
+  password: string;
+}
 
 export class AuthController {
-  static async signup(req: Request, res: Response) {
+  private static instance: AuthController;
+  private rateLimiter: RateLimiter;
+  private sessionManager: SessionManager;
+
+  private constructor() {
+    this.rateLimiter = RateLimiter.getInstance();
+    this.sessionManager = SessionManager.getInstance();
+  }
+
+  public static getInstance(): AuthController {
+    if (!AuthController.instance) {
+      AuthController.instance = new AuthController();
+    }
+    return AuthController.instance;
+  }
+
+  private validatePassword(password: string): boolean {
+    return password.length >= 8 && /[A-Za-z]/.test(password) && /[0-9]/.test(password);
+  }
+
+  public async signup(req: Request, res: Response): Promise<void> {
     try {
-      const { email, password } = req.body;
-      if (!email || !password) {
-        return res.status(400).json({
-          type: ErrorType.INVALID_CREDENTIALS,
-          message: 'メールアドレスとパスワードは必須です。'
-        });
+      const { email, password } = req.body as SignupData;
+      logger.info('Starting signup process for email:', email);
+
+      // レート制限のチェック
+      if (!(await this.rateLimiter.isAllowed(email, 'signup'))) {
+        logger.warn('Rate limit exceeded for signup:', email);
+        throw new ValidationError(getErrorMessage(ErrorType.VALIDATION));
       }
 
-      // パスワードの強度チェック
-      if (!AuthController.validatePassword(password)) {
-        return res.status(400).json({
-          type: ErrorType.INVALID_CREDENTIALS,
-          message: 'パスワードは8文字以上で、大文字、小文字、数字を含める必要があります。'
-        });
-      }
-
-      // 既存ユーザーチェック
+      // 既存ユーザーのチェック
       const existingUser = await User.findOne({ email });
       if (existingUser) {
-        return res.status(409).json({
-          type: ErrorType.INVALID_CREDENTIALS,
-          message: 'このメールアドレスは既に登録されています。'
-        });
+        logger.warn('Signup attempt with existing email:', email);
+        throw new ValidationError(getErrorMessage(ErrorType.DUPLICATE));
       }
 
-      // 新規ユーザー作成
-      const newUser = new User({ email, password });
-      await newUser.save();
+      // パスワードのハッシュ化
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
 
-      // トークン発行
-      const token = AuthController.generateToken(newUser);
-      await sessionManager.createSession(newUser._id.toString(), token);
-
-      res.status(201).json({
-        message: 'ユーザーが正常に作成されました',
-        token,
-        user: {
-          email: newUser.email,
-          isSubscribed: newUser.isSubscribed,
-        },
+      // ユーザーの作成
+      const user = new User({
+        email,
+        password: hashedPassword
       });
+
+      await user.save();
+
+      // トークンの生成
+      const token = generateToken({
+        userId: user._id.toString(),
+        email: user.email,
+        role: user.role
+      });
+
+      const refreshToken = await generateRefreshToken(user._id.toString());
+      await this.sessionManager.createSession(user._id.toString(), refreshToken);
+
+      // レート制限のカウントを増やす
+      await this.rateLimiter.increment(email, 'signup');
+
+      logger.info('Signup successful for user:', user._id);
+      res.status(201).json({
+        message: 'ユーザー登録が完了しました。',
+        user: {
+          id: user._id,
+          email: user.email,
+          role: user.role
+        },
+        token,
+        refreshToken
+      });
+
     } catch (error) {
-      console.error('Signup error:', error);
+      logger.error('Signup error:', error);
+
+      if (error instanceof AppError) {
+        res.status(error.statusCode).json({
+          message: error.message,
+          type: error.type,
+          details: error.details
+        });
+        return;
+      }
+
       res.status(500).json({
-        type: ErrorType.SERVER_ERROR,
-        message: 'サーバーエラーが発生しました。'
+        message: getErrorMessage(ErrorType.SERVER),
+        type: ErrorType.SERVER
       });
     }
   }
 
-  static async login(req: Request, res: Response) {
+  public async login(req: Request, res: Response): Promise<void> {
     try {
-      const { email, password } = req.body;
-      
-      // レート制限チェック
-      if (!loginLimiter.tryRequest(req.ip)) {
-        return res.status(429).json({
-          type: ErrorType.RATE_LIMIT_EXCEEDED,
-          message: 'ログイン試行回数が多すぎます。しばらく時間をおいて再度お試しください。'
-        });
+      const { email, password } = req.body as LoginData;
+      logger.info('Starting login process for email:', email);
+
+      // レート制限のチェック
+      if (!(await this.rateLimiter.isAllowed(email, 'login'))) {
+        logger.warn('Rate limit exceeded for login:', email);
+        throw new ValidationError(getErrorMessage(ErrorType.VALIDATION));
       }
 
-      if (!email || !password) {
-        return res.status(400).json({
-          type: ErrorType.INVALID_CREDENTIALS,
-          message: 'メールアドレスとパスワードは必須です。'
-        });
-      }
-
-      // ユーザー検索
+      // ユーザーの検索
       const user = await User.findOne({ email });
       if (!user) {
-        return res.status(401).json({
-          type: ErrorType.INVALID_CREDENTIALS,
-          message: 'メールアドレスまたはパスワードが正しくありません。'
-        });
+        logger.warn('Invalid login attempt - user not found:', email);
+        throw new AuthError(getErrorMessage(ErrorType.AUTHENTICATION));
       }
 
-      // パスワード検証
-      const isMatch = await user.comparePassword(password);
-      if (!isMatch) {
-        return res.status(401).json({
-          type: ErrorType.INVALID_CREDENTIALS,
-          message: 'メールアドレスまたはパスワードが正しくありません。'
-        });
+      // パスワードの検証
+      const validPassword = await bcrypt.compare(password, user.password);
+      if (!validPassword) {
+        logger.warn('Invalid login attempt - wrong password:', email);
+        throw new AuthError(getErrorMessage(ErrorType.AUTHENTICATION));
       }
 
-      // 既存のセッションを無効化
-      await sessionManager.invalidateUserSessions(user._id.toString());
+      // レート制限のカウントを増やす
+      await this.rateLimiter.increment(email, 'login');
 
-      // 新しいトークンを発行
-      const token = AuthController.generateToken(user);
-      await sessionManager.createSession(user._id.toString(), token);
-
-      res.json({
-        message: 'ログインに成功しました',
-        token,
-        user: {
-          email: user.email,
-          isSubscribed: user.isSubscribed,
-        },
-      });
-    } catch (error) {
-      console.error('Login error:', error);
-      res.status(500).json({
-        type: ErrorType.SERVER_ERROR,
-        message: 'サーバーエラーが発生しました。'
-      });
-    }
-  }
-
-  static async logout(req: Request, res: Response) {
-    try {
-      const token = req.headers.authorization?.split(' ')[1];
-      if (token) {
-        await sessionManager.invalidateSession(token);
-      }
-      res.json({ message: 'ログアウトに成功しました' });
-    } catch (error) {
-      console.error('Logout error:', error);
-      res.status(500).json({
-        type: ErrorType.SERVER_ERROR,
-        message: 'サーバーエラーが発生しました。'
-      });
-    }
-  }
-
-  static async validateSession(req: Request, res: Response) {
-    try {
-      const token = req.headers.authorization?.split(' ')[1];
-      if (!token) {
-        return res.status(401).json({
-          type: ErrorType.INVALID_TOKEN,
-          message: 'トークンが提供されていません。'
-        });
-      }
-
-      const isValid = await sessionManager.validateSession(token);
-      if (!isValid) {
-        return res.status(401).json({
-          type: ErrorType.SESSION_EXPIRED,
-          message: 'セッションが無効または期限切れです。'
-        });
-      }
-
-      res.json({ valid: true });
-    } catch (error) {
-      console.error('Session validation error:', error);
-      res.status(500).json({
-        type: ErrorType.SERVER_ERROR,
-        message: 'サーバーエラーが発生しました。'
-      });
-    }
-  }
-
-  private static generateToken(user: any): string {
-    return jwt.sign(
-      {
-        userId: user._id,
+      // トークンの生成
+      const token = generateToken({
+        userId: user._id.toString(),
         email: user.email,
-        isSubscribed: user.isSubscribed
-      },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+        role: user.role
+      });
+
+      const refreshToken = await generateRefreshToken(user._id.toString());
+      await this.sessionManager.createSession(user._id.toString(), refreshToken);
+
+      logger.info('Login successful for user:', user._id);
+      res.status(200).json({
+        message: 'ログインに成功しました。',
+        user: {
+          id: user._id,
+          email: user.email,
+          role: user.role
+        },
+        token,
+        refreshToken
+      });
+
+    } catch (error) {
+      logger.error('Login error:', error);
+
+      if (error instanceof AppError) {
+        res.status(error.statusCode).json({
+          message: error.message,
+          type: error.type,
+          details: error.details
+        });
+        return;
+      }
+
+      res.status(500).json({
+        message: getErrorMessage(ErrorType.SERVER),
+        type: ErrorType.SERVER
+      });
+    }
   }
 
-  private static validatePassword(password: string): boolean {
-    const minLength = 8;
-    const hasUpperCase = /[A-Z]/.test(password);
-    const hasLowerCase = /[a-z]/.test(password);
-    const hasNumbers = /\d/.test(password);
-    
-    return password.length >= minLength && hasUpperCase && hasLowerCase && hasNumbers;
+  public async logout(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        throw new AuthError(getErrorMessage(ErrorType.AUTHENTICATION));
+      }
+
+      await this.sessionManager.removeSession(userId);
+      logger.info('Logout successful for user:', userId);
+
+      res.status(200).json({
+        message: 'ログアウトしました。'
+      });
+
+    } catch (error) {
+      logger.error('Logout error:', error);
+
+      if (error instanceof AppError) {
+        res.status(error.statusCode).json({
+          message: error.message,
+          type: error.type,
+          details: error.details
+        });
+        return;
+      }
+
+      res.status(500).json({
+        message: getErrorMessage(ErrorType.SERVER),
+        type: ErrorType.SERVER
+      });
+    }
+  }
+
+  public async refreshToken(req: Request, res: Response): Promise<void> {
+    try {
+      const { refreshToken } = req.body;
+      if (!refreshToken) {
+        throw new AuthError(getErrorMessage(ErrorType.AUTHENTICATION));
+      }
+
+      const userId = await this.sessionManager.validateSession(refreshToken);
+      if (!userId) {
+        throw new AuthError(getErrorMessage(ErrorType.AUTHENTICATION));
+      }
+
+      const user = await User.findById(userId);
+      if (!user) {
+        throw new AuthError(getErrorMessage(ErrorType.AUTHENTICATION));
+      }
+
+      const newToken = generateToken({
+        userId: user._id.toString(),
+        email: user.email,
+        role: user.role
+      });
+
+      const newRefreshToken = await generateRefreshToken(user._id.toString());
+      await this.sessionManager.updateSession(userId, newRefreshToken);
+
+      logger.info('Token refresh successful for user:', userId);
+      res.status(200).json({
+        token: newToken,
+        refreshToken: newRefreshToken
+      });
+
+    } catch (error) {
+      logger.error('Token refresh error:', error);
+
+      if (error instanceof AppError) {
+        res.status(error.statusCode).json({
+          message: error.message,
+          type: error.type,
+          details: error.details
+        });
+        return;
+      }
+
+      res.status(500).json({
+        message: getErrorMessage(ErrorType.SERVER),
+        type: ErrorType.SERVER
+      });
+    }
   }
 }

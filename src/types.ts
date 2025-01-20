@@ -1,5 +1,5 @@
 // 占いの種類
-export type FortuneType = 'numerology' | 'tarot' | 'palmistry' | 'dream' | 'compatibility' | 'fortune';
+export type FortuneType = 'numerology' | 'tarot' | 'palm' | 'dream' | 'compatibility' | 'fortune' | 'general';
 
 // 数秘術のパラメータ
 export interface NumerologyParams {
@@ -56,7 +56,7 @@ export interface FortuneUpdateReading extends FortuneReading {
 // AIレスポンスの型
 export interface AIResponse {
   content: string;
-  error?: Error | string;
+  error?: FortuneError | null;
 }
 
 // シンボルの詳細情報
@@ -124,7 +124,23 @@ export const ERROR_CODES = {
 } as const;
 
 // エラーコードの型
-export type ErrorCode = keyof typeof ERROR_CODES;
+export type ErrorCode =
+  | 'NETWORK_ERROR'
+  | 'AI_ERROR'
+  | 'UNKNOWN_ERROR'
+  | 'INVALID_BIRTHDATE'
+  | 'INVALID_NAME'
+  | 'INVALID_CARD'
+  | 'INVALID_SPREAD'
+  | 'INVALID_IMAGE'
+  | 'IMAGE_PROCESSING_ERROR'
+  | 'INVALID_CONTENT'
+  | 'CONTENT_TOO_LONG'
+  | 'CONFIGURATION_ERROR'
+  | 'VALIDATION_ERROR'
+  | 'API_ERROR'
+  | 'RESPONSE_FORMAT_ERROR'
+  | 'UNEXPECTED_ERROR';
 
 // 基本のエラークラス
 export class FortuneError extends Error {
@@ -184,15 +200,10 @@ export interface TarotReading extends FortuneReading {
   question?: string;
 }
 
-// 手相の結果インターフェース
+// 手相占いの結果型
 export interface PalmReading extends FortuneReading {
-  type: 'palmistry';
-  image: string;
-  lines: Record<string, {
-    strength: 'strong' | 'medium' | 'weak';
-    interpretation: string;
-  }>;
-  features: Record<string, string>;
+  type: 'palm';
+  imageUrl: string;
 }
 
 // 夢占いの結果インターフェース
@@ -225,7 +236,8 @@ export interface FortuneHistory {
 
 // ユーザー設定インターフェース
 export interface UserPreferences {
-  interpretationStyle: 'detailed' | 'concise' | 'poetic';
+  favoriteTypes: FortuneType[];
+  interestedAspects: string[];
   culturalContext: 'japanese' | 'western' | 'chinese';
   notificationSettings: {
     daily: boolean;
@@ -246,7 +258,7 @@ export interface UserPreferences {
   displaySettings: {
     theme: 'light' | 'dark' | 'auto';
     fontSize: 'small' | 'medium' | 'large';
-    language: 'ja' | 'en' | 'zh';
+    language: 'ja' | 'en';
     showImages: boolean;
     compactView: boolean;
   };
@@ -283,4 +295,89 @@ export interface InterpretationOptions {
   depth: 'basic' | 'advanced' | 'expert';
   focus: ('psychological' | 'spiritual' | 'practical')[];
   timespan: 'immediate' | 'short-term' | 'long-term';
+}
+
+export enum UserRole {
+  ADMIN = 'admin',
+  TEST_USER = 'test_user',
+  USER = 'user',
+  GUEST = 'guest'
+}
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  displayName: string;
+  role: UserRole;
+  isSubscribed: boolean;
+  createdAt: string;
+  updatedAt: string;
+  preferences: {
+    favoriteTypes: FortuneType[];
+    interestedAspects: string[];
+    culturalContext: 'japanese' | 'western' | 'chinese';
+    notificationSettings: {
+      daily: boolean;
+      weekly: boolean;
+      monthly: boolean;
+      fortuneTypes: FortuneType[];
+      timePreference?: {
+        startHour: number;
+        endHour: number;
+        timezone: string;
+      };
+      channels: {
+        email: boolean;
+        browser: boolean;
+        mobile: boolean;
+      };
+    };
+    displaySettings: {
+      theme: 'light' | 'dark' | 'auto';
+      fontSize: 'small' | 'medium' | 'large';
+      language: 'ja' | 'en';
+      showImages: boolean;
+      compactView: boolean;
+    };
+    privacySettings: {
+      shareHistory: boolean;
+      allowAnalytics: boolean;
+      storeDuration: 30 | 90 | 180 | 365;
+    };
+    fortuneSettings: {
+      defaultTypes: FortuneType[];
+      favoriteSymbols: string[];
+      excludedSymbols: string[];
+      customKeywords: string[];
+      readingPreferences: {
+        [key in FortuneType]: {
+          depth: 'basic' | 'advanced' | 'expert';
+          focus: ('psychological' | 'spiritual' | 'practical')[];
+          autoSave: boolean;
+        };
+      };
+    };
+  };
+  profile: {
+    avatar: string;
+    bio: string;
+    birthDate: string;
+    zodiacSign: string;
+  };
+  settings: {
+    notifications: boolean;
+    theme: 'light' | 'dark' | 'auto';
+    language: 'ja' | 'en';
+  };
+  subscription: {
+    type: 'free' | 'premium' | 'pro';
+    expiresAt: string;
+    features: string[];
+  };
+  fortuneHistory: {
+    type: FortuneType;
+    result: string;
+    timestamp: string;
+  }[];
 } 

@@ -1,3 +1,5 @@
+import { FortuneType } from '../types';
+
 export type MessageType = 'text' | 'fortune' | 'compatibility' | 'timing' | 'advice';
 
 export interface Message {
@@ -5,7 +7,7 @@ export interface Message {
   content: string;
   sender: 'user' | 'bot';
   type: MessageType;
-  timestamp: Date;
+  timestamp: string;
   metadata?: {
     fortuneType?: string;
     targetDate?: string;
@@ -18,13 +20,42 @@ export interface Message {
   };
 }
 
-export type FortuneType = {
-  type: 'general' | 'love' | 'work' | 'money' | 'health';
-  timeframe: 'daily' | 'weekly' | 'monthly' | 'yearly';
-};
+export interface ChatMessage {
+  id: number;
+  content: string;
+  sender: 'user' | 'bot';
+  timestamp: string;
+  metadata?: {
+    fortuneType?: FortuneType;
+    context?: {
+      zodiacSign?: string;
+      birthDate?: string;
+      previousReadings?: string[];
+      userPreferences?: Record<string, any>;
+    };
+    suggestions?: string[];
+  };
+}
 
 export interface ChatContext {
-  lastFortuneType?: FortuneType;
-  lastQuestion?: string;
-  consecutiveQuestions: number;
+  userId: string;
+  sessionId: string;
+  lastInteraction: string;
+  fortuneHistory: {
+    type: FortuneType;
+    result: string;
+    timestamp: string;
+  }[];
+  preferences: {
+    favoriteTypes: FortuneType[];
+    interestedAspects: string[];
+    language: 'ja' | 'en';
+  };
+}
+
+export interface ChatState {
+  messages: ChatMessage[];
+  context: ChatContext;
+  isLoading: boolean;
+  error: string | null;
 }
