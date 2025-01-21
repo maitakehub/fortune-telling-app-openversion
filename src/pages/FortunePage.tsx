@@ -1,50 +1,84 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useAuth } from '../auth/useAuth';
+import { useAuth } from '../auth/AuthContext';
+import { toast } from 'react-toastify';
+import {
+  Sparkles,
+  Calculator,
+  Calendar,
+  Home,
+  Settings,
+  Compass,
+  Hand,
+  Moon,
+  Cat
+} from 'lucide-react';
 
 const fortuneTypes = [
   {
     id: 'astrology',
     name: '星占い',
     description: '星々の配置からあなたの運勢を読み解き、人生の指針を示します。',
-    path: '/fortune/astrology'
+    path: '/fortune/astrology',
+    icon: Sparkles,
+    availableInTest: true
   },
   {
     id: 'tarot',
     name: 'タロット占い',
     description: '神秘的なタロットカードを使って、あなたの運命を読み解きます。',
-    path: '/fortune/tarot'
+    path: '/fortune/tarot',
+    icon: Moon,
+    availableInTest: true
   },
   {
     id: 'numerology',
     name: '数秘術',
     description: '生年月日から導き出される数字で、あなたの運命のパターンを解き明かします。',
-    path: '/fortune/numerology'
+    path: '/fortune/numerology',
+    icon: Calculator,
+    availableInTest: false
   },
   {
     id: 'palm',
     name: '手相占い',
     description: 'あなたの手のひらに刻まれた運命の筋を読み解きます。',
-    path: '/fortune/palm'
+    path: '/fortune/palm',
+    icon: Hand,
+    availableInTest: false
   },
   {
     id: 'dream',
     name: '夢占い',
     description: '不思議な夢の中に隠された、あなたへのメッセージを解読します。',
-    path: '/fortune/dream'
+    path: '/fortune/dream',
+    icon: Moon,
+    availableInTest: false
   },
   {
     id: 'animal',
     name: '動物占い',
     description: 'あなたの心に宿る守護動物を見つけ、その意味を解き明かします。',
-    path: '/fortune/animal'
+    path: '/fortune/animal',
+    icon: Cat,
+    availableInTest: false
   },
   {
     id: 'fourpillars',
     name: '四柱推命',
     description: '生年月日時から導き出される四つの柱で、あなたの運命を占います。',
-    path: '/fortune/fourpillars'
+    path: '/fortune/fourpillars',
+    icon: Calendar,
+    availableInTest: false
+  },
+  {
+    id: 'fengshui',
+    name: '風水占い',
+    description: '住空間の気の流れから、運気の改善と人生の調和を導く',
+    path: '/fortune/fengshui',
+    icon: Compass,
+    availableInTest: true
   }
 ];
 
@@ -83,118 +117,76 @@ export default function FortunePage() {
     navigate('/login');
   };
 
+  const handleFortuneClick = (fortune: typeof fortuneTypes[0]) => {
+    if (user?.subscriptionPlan === 'test' && !fortune.availableInTest) {
+      toast.info('この占いはテストプランでは利用できません。有料プランへのアップグレードをご検討ください。');
+      return;
+    }
+    navigate(fortune.path);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-900">
-      <div className="container mx-auto px-4 py-8">
-        <div className="relative text-center mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-purple-200 to-amber-200 mb-2">
-            神秘の占い
-          </h1>
+    <div className="min-h-screen bg-gradient-to-br from-purple-950 via-indigo-900 to-purple-900 text-purple-100">
+      <nav className="p-4 bg-purple-900/50">
+        <div className="max-w-4xl mx-auto flex justify-between items-center">
           <button
-            onClick={() => setShowSettings(!showSettings)}
-            className="absolute right-4 top-4 p-2 rounded-full hover:bg-purple-800/30 transition-colors"
+            onClick={() => navigate('/')}
+            className="flex items-center space-x-2 text-purple-200 hover:text-purple-100"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-purple-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
+            <Home size={24} />
+            <span>ホーム</span>
           </button>
-
-          {showSettings && (
-            <div className="absolute right-0 mt-2 w-48 bg-purple-800/90 backdrop-blur-sm border border-purple-700/50 rounded-lg shadow-xl z-50">
-              <button
-                onClick={() => {
-                  setShowSettings(false);
-                  navigate('/history');
-                }}
-                className="w-full px-4 py-2 text-left text-purple-200 hover:bg-purple-700/50 rounded-t-lg flex items-center gap-2"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                  <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-                </svg>
-                履歴
-              </button>
-              {user?.role === 'admin' && (
-                <button
-                  onClick={() => {
-                    setShowSettings(false);
-                    navigate('/admin');
-                  }}
-                  className="w-full px-4 py-2 text-left text-purple-200 hover:bg-purple-700/50 flex items-center gap-2"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-                  </svg>
-                  管理画面
-                </button>
-              )}
-              <button
-                onClick={() => {
-                  setShowSettings(false);
-                  navigate('/personal-info');
-                }}
-                className="w-full px-4 py-2 text-left text-purple-200 hover:bg-purple-700/50 flex items-center gap-2"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                </svg>
-                プロフィール
-              </button>
-              <button
-                onClick={() => {
-                  setShowSettings(false);
-                  navigate('/');
-                }}
-                className="w-full px-4 py-2 text-left text-purple-200 hover:bg-purple-700/50 flex items-center gap-2"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
-                </svg>
-                トップページに戻る
-              </button>
-              <button
-                onClick={() => {
-                  setShowSettings(false);
-                  handleLogout();
-                }}
-                className="w-full px-4 py-2 text-left text-red-300 hover:bg-purple-700/50 rounded-b-lg flex items-center gap-2"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd" />
-                </svg>
-                ログアウト
-              </button>
-            </div>
-          )}
+          <button
+            onClick={() => navigate('/settings')}
+            className="flex items-center space-x-2 text-purple-200 hover:text-purple-100"
+          >
+            <Settings size={24} />
+            <span>設定</span>
+          </button>
         </div>
+      </nav>
 
-        {/* 占い選択グリッド */}
-        <motion.div 
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-        >
-          {fortuneTypes.map((fortune) => (
-            <motion.div
-              key={fortune.id}
-              variants={itemVariants}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => navigate(fortune.path)}
-              className="bg-purple-800/20 backdrop-blur-sm border border-purple-500/30 rounded-xl p-6 cursor-pointer transition-all duration-300 hover:bg-purple-700/30 hover:border-purple-400/40 group"
-            >
-              <h3 className="text-xl font-semibold text-purple-200 mb-2 group-hover:text-purple-100">
-                {fortune.name}
-              </h3>
-              <p className="text-purple-300 text-sm leading-relaxed group-hover:text-purple-200">
-                {fortune.description}
-              </p>
-            </motion.div>
-          ))}
-        </motion.div>
-      </div>
+      <main className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-3xl font-bold text-center mb-8">占いメニュー</h1>
+          <motion.div 
+            className="grid grid-cols-1 md:grid-cols-2 gap-6"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            {fortuneTypes.map((fortune) => (
+              <motion.div
+                key={fortune.id}
+                variants={itemVariants}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => handleFortuneClick(fortune)}
+                className={`relative bg-purple-900/30 border border-purple-700/50 rounded-lg p-6 cursor-pointer transition-all duration-300 hover:bg-purple-800/30 ${
+                  user?.subscriptionPlan === 'test' && !fortune.availableInTest ? 'opacity-50' : ''
+                }`}
+              >
+                <div className="flex items-center space-x-4">
+                  <fortune.icon className="w-8 h-8 text-purple-400" />
+                  <div className="flex-1">
+                    <h3 className="text-xl font-semibold text-purple-200 group-hover:text-purple-100">
+                      {fortune.name}
+                      {user?.subscriptionPlan === 'test' && !fortune.availableInTest && (
+                        <span className="ml-2 text-xs px-2 py-1 bg-purple-500/30 rounded-full">
+                          プレミアム限定
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-purple-300 text-sm mt-1">
+                      {fortune.description}
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </main>
     </div>
   );
 } 

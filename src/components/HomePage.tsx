@@ -49,221 +49,123 @@ const SUBSCRIPTION_PLANS = [
     name: 'テストプラン',
     price: '0',
     features: [
-      '全ての占い機能が無制限で利用可能',
+      '全ての占い機能が制限付で利用可能',
       '全ての解説機能が利用可能',
       '24時間サポート',
       'テストユーザー専用機能',
       '※テストユーザー専用のプランです'
     ],
-    recommended: false,
-    isTest: true
+    recommended: false
   }
 ];
 
 export default function HomePage() {
+  const [showTestUserModal, setShowTestUserModal] = useState(false);
+  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuth();
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
-  const [showTestAuthModal, setShowTestAuthModal] = useState(false);
-
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data.type === 'SUBSCRIPTION_SUCCESS') {
-        setShowSubscriptionModal(false);
-        navigate('/fortune');
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [navigate]);
-
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data.type === 'SUBSCRIPTION_COMPLETE') {
-        setShowSubscriptionModal(false);
-        navigate('/fortune');
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [navigate]);
 
   const handlePlanSelect = (plan: string) => {
-    if (plan === 'test') {
-      setShowTestAuthModal(true);
+    if (isAuthenticated) {
+      navigate('/subscription', { state: { selectedPlan: plan } });
       return;
     }
 
-    if (!user) {
-      setShowLoginPrompt(true);
+    // テストプランの場合のみモーダルを表示
+    if (plan === 'test') {
+      setShowTestUserModal(true);
       return;
     }
-    setSelectedPlan(plan);
-    setShowSubscriptionModal(true);
+
+    // その他のプランの場合はログインページに遷移
+    navigate('/login', { 
+      state: { 
+        redirectTo: '/subscription',
+        selectedPlan: plan 
+      } 
+    });
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-900">
-      {/* Header with Auth Buttons */}
-      <div className="w-full max-w-7xl mx-auto flex justify-end p-4">
-        <div className="flex gap-2 sm:gap-4">
-          {!isAuthenticated ? (
-            <>
-              <Link to="/login" className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-full bg-purple-900/50 text-purple-200 hover:bg-purple-800/50 transition-colors text-sm sm:text-base">
-                <LogIn size={16} className="sm:w-[18px] sm:h-[18px]" />
-                <span>ログイン</span>
-              </Link>
-              <Link to="/signup" className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-full bg-purple-500 text-white hover:bg-purple-600 transition-colors text-sm sm:text-base">
-                <UserPlus size={16} className="sm:w-[18px] sm:h-[18px]" />
-                <span>新規登録</span>
-              </Link>
-            </>
-          ) : (
-            <div className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full bg-purple-900/50 text-purple-200">
-              <span>{user?.email}</span>
+    <>
+      {/* Hero Section */}
+      <div className="text-center py-20">
+        <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-amber-200 via-purple-200 to-amber-200">
+          神秘の占い
+        </h1>
+        <p className="text-xl md:text-2xl mb-8 text-purple-200">
+          あなたの運命の導きを、最新のテクノロジーと伝統的な占術で解き明かします
+        </p>
+      </div>
+
+      {/* Features Section */}
+      <div className="py-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {features.map((feature, index) => (
+            <div
+              key={index}
+              className="bg-purple-900/30 backdrop-blur-sm p-6 rounded-xl border border-purple-800/30"
+            >
+              <feature.icon className="w-12 h-12 text-purple-300 mb-4" />
+              <p className="text-lg text-purple-100">{feature.text}</p>
             </div>
-          )}
+          ))}
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-4 sm:py-8">
-        <div className="text-center mb-8 sm:mb-16">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-purple-200 to-amber-200 mb-4 sm:mb-6">
-            神秘の占い
-          </h1>
-          <p className="text-lg sm:text-xl text-purple-200 px-4">
-            あなたの運命の導きを、最新のテクノロジーと伝統的な占術で解き明かします
-          </p>
-          <div className="flex flex-wrap justify-center gap-2 sm:gap-4 mt-6 sm:mt-8 px-2">
-            {features.map((feature, index) => (
-              <div key={index} className="flex items-center gap-2 bg-purple-900/30 px-3 sm:px-4 py-2 rounded-full">
-                <feature.icon size={14} className="sm:w-4 sm:h-4 text-purple-300" />
-                <span className="text-purple-200 text-xs sm:text-sm">{feature.text}</span>
+      {/* Pricing Section */}
+      <div className="py-16">
+        <h2 className="text-4xl font-bold text-center mb-12 bg-clip-text text-transparent bg-gradient-to-r from-amber-200 via-purple-200 to-amber-200">
+          料金プラン
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {SUBSCRIPTION_PLANS.map((plan) => (
+            <div
+              key={plan.id}
+              className={`bg-purple-900/30 backdrop-blur-sm p-8 rounded-xl border ${
+                plan.recommended ? 'border-amber-400/50' : 'border-purple-800/30'
+              } relative`}
+            >
+              {plan.recommended && (
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-amber-400 text-purple-900 px-4 py-1 rounded-full text-sm font-bold">
+                  おすすめ
+                </div>
+              )}
+              <h3 className="text-2xl font-bold mb-4">{plan.name}</h3>
+              <div className="text-3xl font-bold mb-6">
+                ¥{plan.price}
+                <span className="text-lg font-normal text-purple-300">/月</span>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Subscription Plans */}
-        <div className="max-w-6xl mx-auto px-2 sm:px-4">
-          <h2 className="text-2xl sm:text-3xl font-bold text-center text-purple-100 mb-6 sm:mb-8">料金プラン</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-            {SUBSCRIPTION_PLANS.map((plan) => (
-              <div
-                key={plan.id}
-                className={`relative p-6 sm:p-8 rounded-xl border ${
+              <ul className="space-y-4 mb-8">
+                {plan.features.map((feature, index) => (
+                  <li key={index} className="flex items-start gap-2">
+                    <Check className="w-5 h-5 text-purple-400 mt-1 flex-shrink-0" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => handlePlanSelect(plan.id)}
+                className={`w-full py-3 px-6 rounded-lg font-bold transition-colors flex items-center justify-center gap-2 ${
                   plan.recommended
-                    ? 'border-purple-400 bg-purple-900/50'
-                    : plan.isTest
-                    ? 'border-green-400/50 bg-purple-900/30'
-                    : 'border-purple-700/50 bg-purple-900/30'
+                    ? 'bg-amber-400 hover:bg-amber-500 text-purple-900'
+                    : 'bg-purple-600 hover:bg-purple-700 text-white'
                 }`}
               >
-                {plan.recommended && (
-                  <div className="absolute -top-3 sm:-top-4 left-1/2 transform -translate-x-1/2">
-                    <span className="inline-flex items-center px-3 sm:px-4 py-1 rounded-full text-xs sm:text-sm font-medium bg-purple-600 text-white">
-                      <Star className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                      おすすめ
-                    </span>
-                  </div>
-                )}
-                <h3 className="text-xl sm:text-2xl font-bold text-purple-100 mb-2">
-                  {plan.name}
-                </h3>
-                <p className="text-3xl sm:text-4xl font-bold text-purple-100 mb-4 sm:mb-6">
-                  ¥{plan.price}
-                  <span className="text-xs sm:text-sm font-normal text-purple-300">/月</span>
-                </p>
-                <ul className="space-y-2 sm:space-y-3 mb-6 sm:mb-8">
-                  {plan.features.map((feature, index) => (
-                    <li key={index} className="flex items-center text-sm sm:text-base text-purple-200">
-                      <Check className="mr-2 text-purple-400 w-4 h-4 sm:w-5 sm:h-5" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  onClick={() => handlePlanSelect(plan.id)}
-                  className={`w-full py-2 sm:py-3 px-4 sm:px-6 rounded-lg font-medium flex items-center justify-center text-sm sm:text-base ${
-                    plan.recommended
-                      ? 'bg-purple-600 text-white hover:bg-purple-700'
-                      : plan.isTest
-                      ? 'bg-green-600 text-white hover:bg-green-700'
-                      : 'bg-purple-800/50 text-purple-100 hover:bg-purple-800'
-                  } transition-colors`}
-                >
-                  <CreditCard className="mr-2 w-4 h-4 sm:w-5 sm:h-5" />
-                  {plan.isTest ? 'テストプランを利用' : 'プランを選択'}
-                </button>
-              </div>
-            ))}
-          </div>
+                <CreditCard className="w-5 h-5" />
+                プランを選択
+              </button>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Login Prompt Modal */}
-      {showLoginPrompt && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-purple-900 rounded-xl p-6 max-w-md w-full mx-4 relative">
-            <button
-              onClick={() => setShowLoginPrompt(false)}
-              className="absolute top-4 right-4 text-purple-200 hover:text-white"
-            >
-              <X size={24} />
-            </button>
-            <div className="text-center">
-              <h3 className="text-xl font-bold text-purple-100 mb-4">
-                ログインが必要です
-              </h3>
-              <p className="text-purple-200 mb-6">
-                プランを選択するには、ログインまたは新規登録が必要です。
-              </p>
-              <div className="flex gap-4 justify-center">
-                <Link
-                  to="/login"
-                  className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                >
-                  ログイン
-                </Link>
-                <Link
-                  to="/signup"
-                  className="px-6 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
-                >
-                  新規登録
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Test User Modal */}
+      {showTestUserModal && (
+        <TestUserAuthModal
+          onClose={() => setShowTestUserModal(false)}
+          onSuccess={() => navigate('/fortune')}
+        />
       )}
-
-      {/* Subscription Modal */}
-      {showSubscriptionModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md relative">
-            <button
-              onClick={() => setShowSubscriptionModal(false)}
-              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-            >
-              ×
-            </button>
-            <iframe
-              src={`/subscription?plan=${selectedPlan}`}
-              className="w-full h-[600px] border-none"
-              title="Subscription"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Test User Auth Modal */}
-      {showTestAuthModal && (
-        <TestUserAuthModal onClose={() => setShowTestAuthModal(false)} />
-      )}
-    </div>
+    </>
   );
 }

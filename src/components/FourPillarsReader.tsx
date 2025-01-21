@@ -1,164 +1,174 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Home, History, Lock, CreditCard } from 'lucide-react';
+import { Home, History } from 'lucide-react';
 import { useAuth } from '@/auth/useAuth';
-import { useSubscription } from '@/subscriptions/useSubscription';
+import LoadingSpinner from './LoadingSpinner';
+import { generateAIInterpretation } from '../utils/fourPillarsAI';
 
 // 十干
-const HEAVENLY_STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
+const HEAVENLY_STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'] as const;
 // 十二支
-const EARTHLY_BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+const EARTHLY_BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'] as const;
 // 五行
-const FIVE_ELEMENTS = {
-  '甲': '木', '乙': '木',
-  '丙': '火', '丁': '火',
-  '戊': '土', '己': '土',
-  '庚': '金', '辛': '金',
-  '壬': '水', '癸': '水'
+const FIVE_ELEMENTS = ['木', '火', '土', '金', '水'] as const;
+// 十二運
+const TWELVE_STAGES = ['長生', '沐浴', '冠帶', '臨官', '帝旺', '衰', '病', '死', '墓', '絕', '胎', '養'] as const;
+
+interface FourPillars {
+  year: {
+    stem: typeof HEAVENLY_STEMS[number];
+    branch: typeof EARTHLY_BRANCHES[number];
+  };
+  month: {
+    stem: typeof HEAVENLY_STEMS[number];
+    branch: typeof EARTHLY_BRANCHES[number];
+  };
+  day: {
+    stem: typeof HEAVENLY_STEMS[number];
+    branch: typeof EARTHLY_BRANCHES[number];
+  };
+  hour: {
+    stem: typeof HEAVENLY_STEMS[number];
+    branch: typeof EARTHLY_BRANCHES[number];
+  };
+}
+
+interface Reading {
+  fourPillars: FourPillars;
+  mainElement: typeof FIVE_ELEMENTS[number];
+  lifeStage: typeof TWELVE_STAGES[number];
+  interpretation: string;
+}
+
+// 時刻を時と分に分割する型
+interface Time {
+  hour: number;
+  minute: number;
+}
+
+// 時刻文字列をTime型に変換
+const parseTime = (timeStr: string): Time => {
+  const [hour, minute] = timeStr.split(':').map(Number);
+  return { hour, minute };
 };
 
-// 五行の相生相剋
-const ELEMENT_RELATIONS = {
-  '木': { generates: '火', controls: '土' },
-  '火': { generates: '土', controls: '金' },
-  '土': { generates: '金', controls: '水' },
-  '金': { generates: '水', controls: '木' },
-  '水': { generates: '木', controls: '火' }
+// 四柱推命の計算ロジック
+const calculateFourPillars = (birthDate: Date, time: Time): FourPillars => {
+  const year = birthDate.getFullYear();
+  const month = birthDate.getMonth() + 1;
+  const day = birthDate.getDate();
+
+  // 時刻を小数点に変換（例: 13:30 → 13.5）
+  const hourDecimal = time.hour + time.minute / 60;
+
+  // 年柱の計算
+  const yearStemIndex = (year - 4) % 10;
+  const yearBranchIndex = (year - 4) % 12;
+
+  // 月柱の計算（簡略化）
+  const monthStemIndex = (yearStemIndex * 2 + month) % 10;
+  const monthBranchIndex = (month + 2) % 12;
+
+  // 日柱の計算（簡略化）
+  const dayStemIndex = (year * 5 + Math.floor(year / 4) + day - 7) % 10;
+  const dayBranchIndex = (day * 12) % 12;
+
+  // 時柱の計算（小数点を考慮）
+  const hourStemIndex = (dayStemIndex * 2 + Math.floor(hourDecimal / 2)) % 10;
+  const hourBranchIndex = Math.floor(hourDecimal / 2) % 12;
+
+  return {
+    year: {
+      stem: HEAVENLY_STEMS[yearStemIndex],
+      branch: EARTHLY_BRANCHES[yearBranchIndex],
+    },
+    month: {
+      stem: HEAVENLY_STEMS[monthStemIndex],
+      branch: EARTHLY_BRANCHES[monthBranchIndex],
+    },
+    day: {
+      stem: HEAVENLY_STEMS[dayStemIndex],
+      branch: EARTHLY_BRANCHES[dayBranchIndex],
+    },
+    hour: {
+      stem: HEAVENLY_STEMS[hourStemIndex],
+      branch: EARTHLY_BRANCHES[hourBranchIndex],
+    },
+  };
 };
 
-// 運勢の解釈
-const FORTUNE_INTERPRETATIONS = {
-  '木': {
-    strong: '創造性と成長の時期です。新しいプロジェクトの開始に適しています。',
-    weak: '計画を練り直し、エネルギーを蓄える時期です。',
-  },
-  '火': {
-    strong: '情熱と活力に満ちた時期です。人との出会いが重要になります。',
-    weak: '感情的になりやすい時期です。冷静さを保つことが大切です。',
-  },
-  '土': {
-    strong: '安定と実りの時期です。基盤を固めるのに適しています。',
-    weak: '変化を受け入れ、柔軟に対応することが必要です。',
-  },
-  '金': {
-    strong: '決断力と実行力が高まる時期です。目標達成に向けて進みましょう。',
-    weak: '慎重な判断が必要な時期です。急がず着実に進むことが大切です。',
-  },
-  '水': {
-    strong: '知恵と直感が冴える時期です。学びと成長のチャンスです。',
-    weak: '内省と準備の時期です。次の行動の計画を立てましょう。',
+// 五行の相性を判定
+const getMainElement = (fourPillars: FourPillars): typeof FIVE_ELEMENTS[number] => {
+  const stemIndex = HEAVENLY_STEMS.indexOf(fourPillars.day.stem);
+  return FIVE_ELEMENTS[Math.floor(stemIndex / 2)];
+};
+
+// 運勢の段階を判定
+const getLifeStage = (fourPillars: FourPillars): typeof TWELVE_STAGES[number] => {
+  const randomIndex = Math.floor(Math.random() * TWELVE_STAGES.length);
+  return TWELVE_STAGES[randomIndex];
+};
+
+// 時刻オプションを生成（5分単位）
+const generateTimeOptions = () => {
+  const options = [];
+  for (let hour = 0; hour < 24; hour++) {
+    for (let minute = 0; minute < 60; minute += 5) {
+      const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+      options.push(timeStr);
+    }
   }
+  return options;
 };
 
 export default function FourPillarsReader() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { isSubscribed } = useSubscription();
-  const [birthDateTime, setBirthDateTime] = useState('');
-  const [pillars, setPillars] = useState<{
-    year: string[];
-    month: string[];
-    day: string[];
-    hour: string[];
-  } | null>(null);
-  const [interpretation, setInterpretation] = useState<string>('');
-  const [error, setError] = useState<string>('');
+  const [birthDate, setBirthDate] = useState('');
+  const [birthTime, setBirthTime] = useState('');
+  const [reading, setReading] = useState<Reading | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // 四柱を計算する関数
-  const calculatePillars = (dateTime: string) => {
-    const date = new Date(dateTime);
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    const hour = date.getHours();
-
-    // 年柱の計算
-    const yearStem = HEAVENLY_STEMS[(year - 4) % 10];
-    const yearBranch = EARTHLY_BRANCHES[(year - 4) % 12];
-
-    // 月柱の計算（簡略化）
-    const monthStem = HEAVENLY_STEMS[(month + 2) % 10];
-    const monthBranch = EARTHLY_BRANCHES[month - 1];
-
-    // 日柱の計算（簡略化）
-    const dayStem = HEAVENLY_STEMS[day % 10];
-    const dayBranch = EARTHLY_BRANCHES[day % 12];
-
-    // 時柱の計算
-    const hourStem = HEAVENLY_STEMS[Math.floor(hour / 2) % 10];
-    const hourBranch = EARTHLY_BRANCHES[Math.floor(hour / 2) % 12];
-
-    return {
-      year: [yearStem, yearBranch],
-      month: [monthStem, monthBranch],
-      day: [dayStem, dayBranch],
-      hour: [hourStem, hourBranch]
-    };
-  };
-
-  // 運勢を解釈する関数
-  const interpretFortune = (pillars: {
-    year: string[];
-    month: string[];
-    day: string[];
-    hour: string[];
-  }) => {
-    // 五行の強さを計算
-    const elements = {
-      '木': 0,
-      '火': 0,
-      '土': 0,
-      '金': 0,
-      '水': 0
-    };
-
-    // 各柱の干支から五行の強さを計算
-    [pillars.year[0], pillars.month[0], pillars.day[0], pillars.hour[0]].forEach(stem => {
-      const element = FIVE_ELEMENTS[stem as keyof typeof FIVE_ELEMENTS];
-      elements[element as keyof typeof elements] += 1;
-    });
-
-    // 最も強い五行と最も弱い五行を特定
-    const sortedElements = Object.entries(elements).sort((a, b) => b[1] - a[1]);
-    const strongestElement = sortedElements[0][0];
-    const weakestElement = sortedElements[4][0];
-
-    // 運勢の解釈を生成
-    let interpretation = `【四柱推命による運勢解釈】\n\n`;
-    interpretation += `基本的な性質：\n`;
-    interpretation += `最も強い五行は「${strongestElement}」です。\n`;
-    interpretation += FORTUNE_INTERPRETATIONS[strongestElement as keyof typeof FORTUNE_INTERPRETATIONS].strong + '\n\n';
-    
-    interpretation += `注意点：\n`;
-    interpretation += `最も弱い五行は「${weakestElement}」です。\n`;
-    interpretation += FORTUNE_INTERPRETATIONS[weakestElement as keyof typeof FORTUNE_INTERPRETATIONS].weak + '\n\n';
-
-    interpretation += `相性：\n`;
-    interpretation += `- 相生（プラスの影響）：${ELEMENT_RELATIONS[strongestElement as keyof typeof ELEMENT_RELATIONS].generates}\n`;
-    interpretation += `- 相剋（注意が必要）：${ELEMENT_RELATIONS[strongestElement as keyof typeof ELEMENT_RELATIONS].controls}\n\n`;
-
-    interpretation += `アドバイス：\n`;
-    interpretation += `強い五行の特性を活かしながら、弱い五行の分野にも意識を向けることで、よりバランスの取れた運勢が期待できます。`;
-
-    return interpretation;
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isSubscribed) {
-      setError('この機能はサブスクリプション会員専用です。');
-      return;
-    }
+    setIsLoading(true);
+    setError(null);
+
     try {
-      const calculatedPillars = calculatePillars(birthDateTime);
-      setPillars(calculatedPillars);
-      const fortune = interpretFortune(calculatedPillars);
-      setInterpretation(fortune);
-      setError('');
+      const date = new Date(birthDate);
+      const time = parseTime(birthTime);
+
+      if (isNaN(date.getTime()) || !birthTime) {
+        throw new Error('生年月日と時刻を正しく入力してください。');
+      }
+
+      const fourPillars = calculateFourPillars(date, time);
+      const mainElement = getMainElement(fourPillars);
+      const lifeStage = getLifeStage(fourPillars);
+
+      // AI解釈を生成
+      const aiInterpretation = await generateAIInterpretation({
+        ...fourPillars,
+        mainElement,
+        lifeStage,
+      });
+
+      setReading({
+        fourPillars,
+        mainElement,
+        lifeStage,
+        interpretation: aiInterpretation,
+      });
     } catch (err) {
-      setError('計算中にエラーが発生しました。入力を確認してください。');
+      setError(err instanceof Error ? err.message : '予期せぬエラーが発生しました');
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [birthDate, birthTime]);
+
+  const timeOptions = generateTimeOptions();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-900 text-purple-100">
@@ -193,78 +203,111 @@ export default function FourPillarsReader() {
             </button>
           </div>
 
-          {!isSubscribed ? (
-            <div className="p-6 bg-purple-900/30 border border-purple-700/50 rounded-lg text-center">
-              <Lock className="mx-auto mb-4" size={48} />
-              <h2 className="text-xl font-semibold mb-4">サブスクリプション会員限定機能</h2>
-              <p className="mb-4">より詳細な運勢を知るには、サブスクリプションにご登録ください。</p>
-              <button
-                onClick={() => navigate('/subscription')}
-                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center mx-auto"
-              >
-                <CreditCard className="mr-2" size={20} />
-                サブスクリプションに登録
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="p-6 bg-purple-900/30 border border-purple-700/50 rounded-lg">
-                <div className="mb-4">
-                  <label htmlFor="birthDateTime" className="block text-sm font-medium mb-2">
-                    生年月日時を入力してください
-                  </label>
-                  <input
-                    type="datetime-local"
-                    id="birthDateTime"
-                    value={birthDateTime}
-                    onChange={(e) => setBirthDateTime(e.target.value)}
-                    className="w-full p-2 bg-purple-800/50 border border-purple-700/50 rounded-lg text-purple-100"
-                    required
-                  />
-                </div>
+          <motion.form
+            onSubmit={handleSubmit}
+            className="space-y-6"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-3 rounded-lg mb-4">
+                {error}
+              </div>
+            )}
 
-                {error && (
-                  <div className="mb-4 p-4 bg-red-500/10 border border-red-500/50 rounded-lg">
-                    <p className="text-red-400">{error}</p>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  className="w-full py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                >
-                  鑑定する
-                </button>
+            <div className="p-6 bg-purple-900/30 border border-purple-700/50 rounded-lg">
+              <div className="mb-4">
+                <label htmlFor="birthDate" className="block text-sm font-medium mb-2">
+                  生年月日
+                </label>
+                <input
+                  type="date"
+                  id="birthDate"
+                  value={birthDate}
+                  onChange={(e) => setBirthDate(e.target.value)}
+                  className="w-full p-2 bg-purple-800/50 border border-purple-700/50 rounded-lg text-purple-100"
+                  required
+                />
               </div>
 
-              {pillars && interpretation && (
-                <div className="p-6 bg-purple-900/30 border border-purple-700/50 rounded-lg">
-                  <h2 className="text-xl font-semibold mb-4">四柱</h2>
-                  <div className="grid grid-cols-4 gap-4 mb-6">
-                    <div className="text-center">
-                      <h3 className="font-medium mb-2">年柱</h3>
-                      <p className="text-2xl">{pillars.year.join('')}</p>
-                    </div>
-                    <div className="text-center">
-                      <h3 className="font-medium mb-2">月柱</h3>
-                      <p className="text-2xl">{pillars.month.join('')}</p>
-                    </div>
-                    <div className="text-center">
-                      <h3 className="font-medium mb-2">日柱</h3>
-                      <p className="text-2xl">{pillars.day.join('')}</p>
-                    </div>
-                    <div className="text-center">
-                      <h3 className="font-medium mb-2">時柱</h3>
-                      <p className="text-2xl">{pillars.hour.join('')}</p>
-                    </div>
-                  </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  生まれた時刻（5分単位）
+                </label>
+                <select
+                  value={birthTime}
+                  onChange={(e) => setBirthTime(e.target.value)}
+                  required
+                  className="mt-1 block w-full px-3 py-2 bg-purple-800/50 border border-purple-700/50 rounded-lg text-purple-100"
+                >
+                  <option value="">時刻を選択</option>
+                  {timeOptions.map((time) => (
+                    <option key={time} value={time}>
+                      {time}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                  <h2 className="text-xl font-semibold mb-4">運勢解釈</h2>
-                  <pre className="whitespace-pre-wrap text-purple-100">{interpretation}</pre>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full mt-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+              >
+                鑑定する
+              </button>
+            </div>
+
+            {isLoading && (
+              <LoadingSpinner message="四柱推命で運命を読み解いています..." />
+            )}
+
+            {reading && !isLoading && (
+              <motion.div
+                className="p-6 bg-purple-900/30 border border-purple-700/50 rounded-lg"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                <h2 className="text-xl font-semibold mb-4">四柱</h2>
+                <div className="grid grid-cols-4 gap-4 mb-6">
+                  <div className="text-center">
+                    <h3 className="font-medium mb-2">年柱</h3>
+                    <p className="text-2xl">{reading.fourPillars.year.stem}{reading.fourPillars.year.branch}</p>
+                  </div>
+                  <div className="text-center">
+                    <h3 className="font-medium mb-2">月柱</h3>
+                    <p className="text-2xl">{reading.fourPillars.month.stem}{reading.fourPillars.month.branch}</p>
+                  </div>
+                  <div className="text-center">
+                    <h3 className="font-medium mb-2">日柱</h3>
+                    <p className="text-2xl">{reading.fourPillars.day.stem}{reading.fourPillars.day.branch}</p>
+                  </div>
+                  <div className="text-center">
+                    <h3 className="font-medium mb-2">時柱</h3>
+                    <p className="text-2xl">{reading.fourPillars.hour.stem}{reading.fourPillars.hour.branch}</p>
+                  </div>
                 </div>
-              )}
-            </form>
-          )}
+
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="text-center">
+                    <h3 className="font-medium mb-2">主たる五行</h3>
+                    <p className="text-2xl">{reading.mainElement}</p>
+                  </div>
+                  <div className="text-center">
+                    <h3 className="font-medium mb-2">現在の運勢段階</h3>
+                    <p className="text-2xl">{reading.lifeStage}</p>
+                  </div>
+                </div>
+
+                <h2 className="text-xl font-semibold mb-4">AI占い師による詳細な解釈</h2>
+                <div className="prose prose-invert max-w-none">
+                  <pre className="whitespace-pre-wrap text-purple-100">{reading.interpretation}</pre>
+                </div>
+              </motion.div>
+            )}
+          </motion.form>
         </div>
       </main>
     </div>

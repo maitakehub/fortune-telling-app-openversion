@@ -1,18 +1,19 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useAuth } from '../auth/useAuth';
-import { handleError, validateInput, fetchWithErrorHandling } from '../utils/errorHandler';
+import { useAuth } from '@/auth/useAuth';
+import { PersonalInfo } from '@/types/personalInfo';
 import { toast } from 'react-toastify';
 
-interface PersonalInfo {
-  name: string;
-  birthDate: string;
-  birthTime: string;
-  gender: 'male' | 'female' | 'other';
-  zodiacSign: string;
-  profileImage?: string;
-}
+// デモプロフィールデータ
+const DEMO_PROFILE: PersonalInfo = {
+  name: 'テストユーザー',
+  birthDate: '2000-01-01',
+  birthTime: '12:00',
+  birthPlace: '東京都',
+  gender: '未設定',
+  profileImage: null,
+};
 
 const ZODIAC_SIGNS = [
   { value: 'aries', label: '牡羊座' },
@@ -32,55 +33,18 @@ const ZODIAC_SIGNS = [
 export default function PersonalInfoPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [personalInfo, setPersonalInfo] = useState<PersonalInfo>({
-    name: '',
-    birthDate: '',
-    birthTime: '',
-    gender: 'male' as const,
-    zodiacSign: ''
-  });
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [personalInfo, setPersonalInfo] = useState<PersonalInfo>(DEMO_PROFILE);
+  const [imagePreview, setImagePreview] = useState<string | null>(DEMO_PROFILE.profileImage || null);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  // デモデータの初期化
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/login', { state: { from: '/personal-info' } });
-      return;
-    }
-
-    const fetchPersonalInfo = async () => {
-      try {
-        const data = await fetchWithErrorHandling<PersonalInfo>('/api/user/personal-info', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        const formattedData = {
-          ...data,
-          birthDate: data.birthDate ? new Date(data.birthDate).toISOString().split('T')[0] : ''
-        };
-        setPersonalInfo(formattedData);
-        if (data.profileImage) {
-          setImagePreview(data.profileImage);
-        }
-      } catch (error) {
-        if (error instanceof Response && error.status === 401) {
-          navigate('/login', { state: { from: '/personal-info' } });
-          return;
-        }
-        handleError(error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchPersonalInfo();
-  }, [navigate]);
+    console.log('Initializing demo data');
+    setPersonalInfo(DEMO_PROFILE);
+    setImagePreview(DEMO_PROFILE.profileImage || null);
+  }, []);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -89,7 +53,7 @@ export default function PersonalInfoPage() {
         // 画像をリサイズ
         const resizedImage = await resizeImage(file, 800); // 最大幅800pxにリサイズ
         setImagePreview(resizedImage);
-        setPersonalInfo(prev => ({
+        setPersonalInfo((prev: PersonalInfo) => ({
           ...prev,
           profileImage: resizedImage
         }));
@@ -185,6 +149,31 @@ export default function PersonalInfoPage() {
         [name]: value
       }));
     }
+
+    // 入力時にエラーをクリア
+    if (errors[name]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+
+  const validateInput = (value: string, type: string): string | null => {
+    if (!value || value.trim() === '') {
+      return `${type === 'name' ? '名前' : '生年月日'}を入力してください`;
+    }
+    if (type === 'date') {
+      const date = new Date(value);
+      if (isNaN(date.getTime())) {
+        return '有効な日付を入力してください';
+      }
+      if (date > new Date()) {
+        return '未来の日付は選択できません';
+      }
+    }
+    return null;
   };
 
   const validateForm = (): boolean => {
@@ -212,225 +201,183 @@ export default function PersonalInfoPage() {
       return;
     }
 
+    // デモモードでは保存をシミュレート
     setIsSaving(true);
-
-    try {
-      const response = await fetchWithErrorHandling('/api/user/personal-info', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          name: personalInfo.name,
-          birthDate: personalInfo.birthDate,
-          birthTime: personalInfo.birthTime || null,
-          gender: personalInfo.gender,
-          zodiacSign: personalInfo.zodiacSign,
-          profileImage: imagePreview
-        })
-      });
-
-      toast.success('プロフィール情報を更新しました');
+    setTimeout(() => {
+      toast.success('プロフィール情報を更新しました（デモ）');
       setSuccess(true);
-    } catch (error) {
-      handleError(error);
-    } finally {
       setIsSaving(false);
-    }
+      // 保存成功後、占いページに戻る
+      setTimeout(() => {
+        navigate('/fortune');
+      }, 1500);
+    }, 1000);
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-purple-900 flex items-center justify-center">
-        <div className="text-purple-200">読み込み中...</div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-purple-900 py-8 px-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="max-w-2xl mx-auto bg-purple-800/50 rounded-xl p-6 sm:p-8"
-      >
-        <h1 className="text-3xl font-bold text-purple-100 mb-8 text-center">プロフィール設定</h1>
-
-        <form onSubmit={handleSubmit} className="space-y-6" data-testid="profile-form">
-          {/* プロフィール画像アップロード */}
-          <div className="flex flex-col items-center space-y-4">
-            <div className="relative w-32 h-32">
-              <div className="w-full h-full rounded-full overflow-hidden bg-purple-700 border-2 border-purple-400">
-                {imagePreview ? (
-                  <img
-                    src={imagePreview}
-                    alt="プロフィール"
-                    className="w-full h-full object-cover"
-                    data-testid="profile-image"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-purple-300">
-                    <span>No Image</span>
-                  </div>
-                )}
-              </div>
-              <label
-                htmlFor="profile-image"
-                className="absolute bottom-0 right-0 bg-purple-600 rounded-full p-2 cursor-pointer hover:bg-purple-500 transition-colors"
-                data-testid="image-upload-button"
-              >
+    <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-900 p-8">
+      <div className="max-w-2xl mx-auto bg-purple-800/30 backdrop-blur-sm rounded-xl p-8 shadow-lg">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold text-purple-100">プロフィール設定</h1>
+          <span className="text-sm text-purple-300 bg-purple-700/50 px-3 py-1 rounded-full">
+            {user?.subscriptionPlan === 'test' ? 'テストプラン' : 'デモモード'}
+          </span>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* プロフィール画像 */}
+          <div>
+            <label className="block text-purple-200 mb-2">プロフィール画像</label>
+            <div className="flex items-center space-x-4">
+              {imagePreview && (
+                <img
+                  src={imagePreview}
+                  alt="プロフィール"
+                  className="w-24 h-24 rounded-full object-cover"
+                />
+              )}
+              <label className="cursor-pointer bg-purple-700 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition-colors">
+                画像を選択
                 <input
                   type="file"
-                  id="profile-image"
-                  className="hidden"
                   accept="image/*"
                   onChange={handleImageUpload}
-                  data-testid="image-input"
+                  className="hidden"
                 />
-                <svg
-                  className="w-5 h-5 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                  />
-                </svg>
               </label>
             </div>
+            {errors.image && (
+              <p className="text-red-400 text-sm mt-1">{errors.image}</p>
+            )}
           </div>
 
-          {/* 名前入力 */}
+          {/* 名前 */}
           <div>
-            <label htmlFor="name" className="block text-purple-200 mb-2">
-              名前
-            </label>
+            <label htmlFor="name" className="block text-purple-200 mb-2">名前</label>
             <input
               type="text"
               id="name"
               name="name"
               value={personalInfo.name}
               onChange={handleInputChange}
-              className="w-full px-4 py-2 bg-purple-700/50 rounded-lg text-purple-100 placeholder-purple-400 border border-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              placeholder="あなたの名前"
-              data-testid="name-input"
+              className="w-full bg-purple-900/50 border border-purple-700 text-purple-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
             {errors.name && (
-              <p className="mt-1 text-red-400 text-sm" data-testid="name-error">
-                {errors.name}
-              </p>
+              <p className="text-red-400 text-sm mt-1">{errors.name}</p>
             )}
           </div>
 
-          {/* 生年月日入力 */}
+          {/* 生年月日 */}
           <div>
-            <label htmlFor="birthDate" className="block text-purple-200 mb-2">
-              生年月日
-            </label>
+            <label htmlFor="birthDate" className="block text-purple-200 mb-2">生年月日</label>
             <input
               type="date"
               id="birthDate"
               name="birthDate"
               value={personalInfo.birthDate}
               onChange={handleInputChange}
-              className="w-full px-4 py-2 bg-purple-700/50 rounded-lg text-purple-100 border border-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              data-testid="birthDate-input"
+              className="w-full bg-purple-900/50 border border-purple-700 text-purple-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
             {errors.birthDate && (
-              <p className="mt-1 text-red-400 text-sm" data-testid="birthDate-error">
-                {errors.birthDate}
-              </p>
+              <p className="text-red-400 text-sm mt-1">{errors.birthDate}</p>
             )}
           </div>
 
-          {/* 生まれた時間入力 */}
+          {/* 誕生時刻 */}
           <div>
-            <label htmlFor="birthTime" className="block text-purple-200 mb-2">
-              生まれた時間（任意）
-            </label>
+            <label htmlFor="birthTime" className="block text-purple-200 mb-2">誕生時刻（任意）</label>
             <input
               type="time"
               id="birthTime"
               name="birthTime"
-              value={personalInfo.birthTime}
+              value={personalInfo.birthTime || ''}
               onChange={handleInputChange}
-              className="w-full px-4 py-2 bg-purple-700/50 rounded-lg text-purple-100 border border-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              data-testid="birthTime-input"
+              className="w-full bg-purple-900/50 border border-purple-700 text-purple-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
           </div>
 
-          {/* 性別選択 */}
-          <div className="relative z-10">
-            <label className="block text-purple-200 mb-2">性別</label>
-            <div className="flex space-x-4">
-              {['male', 'female', 'other'].map((gender) => (
-                <label
-                  key={gender}
-                  className="relative flex items-center cursor-pointer"
-                  data-testid={`gender-${gender}-label`}
-                >
-                  <input
-                    type="radio"
-                    name="gender"
-                    value={gender}
-                    checked={personalInfo.gender === gender}
-                    onChange={handleInputChange}
-                    className="sr-only"
-                    data-testid={`gender-${gender}-input`}
-                  />
-                  <div className="w-4 h-4 border-2 border-purple-400 rounded-full mr-2 flex items-center justify-center">
-                    {personalInfo.gender === gender && (
-                      <div className="w-2 h-2 bg-purple-400 rounded-full" />
-                    )}
-                  </div>
-                  <span className="text-purple-200">
-                    {gender === 'male' ? '男性' : gender === 'female' ? '女性' : 'その他'}
-                  </span>
-                </label>
-              ))}
-            </div>
+          {/* 出生地 */}
+          <div>
+            <label htmlFor="birthPlace" className="block text-purple-200 mb-2">出生地（任意）</label>
+            <input
+              type="text"
+              id="birthPlace"
+              name="birthPlace"
+              value={personalInfo.birthPlace || ''}
+              onChange={handleInputChange}
+              className="w-full bg-purple-900/50 border border-purple-700 text-purple-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+
+          {/* 性別 */}
+          <div>
+            <label htmlFor="gender" className="block text-purple-200 mb-2">性別</label>
+            <select
+              id="gender"
+              name="gender"
+              value={personalInfo.gender || ''}
+              onChange={handleInputChange}
+              className="w-full bg-purple-900/50 border border-purple-700 text-purple-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="">選択してください</option>
+              <option value="male">男性</option>
+              <option value="female">女性</option>
+              <option value="other">その他</option>
+              <option value="not_specified">回答しない</option>
+            </select>
             {errors.gender && (
-              <p className="mt-1 text-red-400 text-sm" data-testid="gender-error">
-                {errors.gender}
-              </p>
+              <p className="text-red-400 text-sm mt-1">{errors.gender}</p>
             )}
           </div>
 
-          {/* 送信ボタン */}
+          {/* 星座 */}
+          <div>
+            <label htmlFor="zodiacSign" className="block text-purple-200 mb-2">星座</label>
+            <select
+              id="zodiacSign"
+              name="zodiacSign"
+              value={personalInfo.zodiacSign}
+              onChange={handleInputChange}
+              className="w-full bg-purple-900/50 border border-purple-700 text-purple-100 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              {ZODIAC_SIGNS.map(sign => (
+                <option key={sign.value} value={sign.value}>
+                  {sign.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="flex justify-between items-center pt-4">
             <button
               type="button"
               onClick={() => navigate('/fortune')}
-              className="px-6 py-2 bg-purple-700/50 text-purple-200 rounded-lg hover:bg-purple-600/50 transition-colors"
-              data-testid="skip-button"
+              className="bg-purple-700/50 text-purple-200 px-6 py-2 rounded-lg hover:bg-purple-600/50 transition-colors"
             >
-              スキップ
+              戻る
             </button>
-            <button
+            <motion.button
               type="submit"
               disabled={isSaving}
-              className="px-6 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              data-testid="save-button"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className={`bg-purple-600 text-white px-8 py-2 rounded-lg ${
+                isSaving ? 'opacity-50 cursor-not-allowed' : 'hover:bg-purple-500'
+              } transition-colors`}
             >
-              {isSaving ? '保存中...' : '保存する'}
-            </button>
+              {isSaving ? '保存中...' : '保存'}
+            </motion.button>
           </div>
         </form>
 
-        {/* 成功メッセージ */}
         {success && (
-          <div
-            className="mt-4 p-4 bg-green-500/10 border border-green-500/50 rounded-lg"
-            data-testid="success-message"
-          >
-            <p className="text-green-400 text-center">プロフィール情報を更新しました</p>
+          <div className="mt-4 bg-green-500/10 border border-green-500/50 rounded-lg p-4">
+            <p className="text-green-400 text-center">
+              プロフィール情報を更新しました
+            </p>
           </div>
         )}
-      </motion.div>
+      </div>
     </div>
   );
-} 
+}; 

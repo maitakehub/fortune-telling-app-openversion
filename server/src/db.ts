@@ -4,7 +4,7 @@ import { createLogger } from './utils/logger';
 const logger = createLogger('Database');
 
 export async function connectToDatabase(): Promise<void> {
-  const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/fortune-telling';
+  const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/fortune-telling';
   const maxRetries = 3;
   let retryCount = 0;
 

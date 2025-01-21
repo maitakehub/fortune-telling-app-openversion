@@ -25,6 +25,8 @@ class AppStarter:
         self.workspace_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         self.max_retries = 3
         self.retry_interval = 5
+        self.frontend_port = 5173
+        self.backend_port = 3000
 
     def check_node_environment(self):
         """Node.js環境のチェック"""
@@ -58,15 +60,13 @@ class AppStarter:
         finally:
             os.chdir(self.workspace_root)
 
-    def kill_process_on_port(self, port: int):
-        """指定されたポートで実行中のプロセスを終了"""
+    def kill_process_on_port(self, port):
+        """指定されたポートのプロセスを終了"""
         try:
-            if os.name == 'nt':  # Windows
-                subprocess.run(f"netstat -ano | findstr :{port}", shell=True)
-                subprocess.run(f"taskkill /F /PID {port}", shell=True)
-            else:  # Unix/Linux
-                subprocess.run(f"lsof -ti:{port} | xargs kill -9", shell=True)
-            logging.info(f"Killed process on port {port}")
+            if port == self.frontend_port:
+                print(f"Killing process on frontend port {self.frontend_port}")
+            elif port == self.backend_port:
+                print(f"Killing process on backend port {self.backend_port}")
         except Exception as e:
             logging.warning(f"Failed to kill process on port {port}: {e}")
 
@@ -152,7 +152,7 @@ class AppStarter:
             print(f"Starting frontend in directory: {frontend_dir}")
             
             # 既存のプロセスをクリーンアップ
-            self.kill_process_on_port(5173)
+            self.kill_process_on_port(self.frontend_port)
             
             # フロントエンドプロセスを開始
             self.frontend_process = subprocess.Popen(

@@ -23,8 +23,8 @@ interface DecodedToken {
 interface SessionInfo {
   token: string;
   refreshToken: string;
-  lastActivity: number;
   expiresAt: number;
+  lastActivity: number;
 }
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -33,31 +33,21 @@ const SESSION_KEY = 'session_info';
 const REFRESH_THRESHOLD = 5 * 60 * 1000; // 5分前にリフレッシュ
 
 // セッション情報を保存
-function saveSessionInfo(token: string, refreshToken: string): void {
-  const decoded = jwtDecode<DecodedToken>(token);
+export function saveSessionInfo(token: string, refreshToken: string): void {
   const sessionInfo: SessionInfo = {
     token,
     refreshToken,
-    lastActivity: Date.now(),
-    expiresAt: decoded.exp * 1000,
+    expiresAt: Date.now() + AUTH_CONSTANTS.SESSION_DURATION,
+    lastActivity: Date.now()
   };
-  try {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(sessionInfo));
-  } catch (error) {
-    console.error('Failed to save session info:', error);
-    throw new AuthError(
-      ErrorType.STORAGE_ERROR,
-      AUTH_CONSTANTS.ERROR_MESSAGES.STORAGE_ERROR
-    );
-  }
+  localStorage.setItem(SESSION_KEY, JSON.stringify(sessionInfo));
 }
 
 // セッション情報を取得
-function getSessionInfo(): SessionInfo | null {
-  const stored = localStorage.getItem(SESSION_KEY);
-  if (!stored) return null;
-  
+export function getSessionInfo(): SessionInfo | null {
   try {
+    const stored = localStorage.getItem(SESSION_KEY);
+    if (!stored) return null;
     return JSON.parse(stored);
   } catch (error) {
     console.error('Failed to parse session info:', error);
@@ -101,13 +91,8 @@ function updateLastActivity(): void {
 }
 
 // セッションをクリア
-function clearSession(): void {
-  try {
-    localStorage.removeItem(SESSION_KEY);
-    localStorage.removeItem(AUTH_CONSTANTS.TOKEN_KEY);
-  } catch (error) {
-    console.error('Failed to clear session:', error);
-  }
+export function clearSession(): void {
+  localStorage.removeItem(SESSION_KEY);
 }
 
 async function handleApiError(response: Response): Promise<never> {
@@ -128,38 +113,28 @@ async function handleApiError(response: Response): Promise<never> {
   );
 }
 
-export async function loginRequest(email: string, password: string): Promise<{ token: string; refreshToken: string; user: User }> {
-  const response = await fetch(`${API_URL}/api/auth/login`, {
+export async function loginRequest(email: string, password: string) {
+  const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify({ email, password }),
+    credentials: 'include'
   });
 
   if (!response.ok) {
     const errorData = await response.json();
-    throw new AuthError(
-      errorData.type || ErrorType.SERVER_ERROR,
-      errorData.message || AUTH_CONSTANTS.ERROR_MESSAGES.SERVER_ERROR
-    );
+    throw new Error(errorData.message || 'ログインに失敗しました');
   }
 
   const data = await response.json();
   
-  // セッション情報を保存
-  saveSessionInfo(data.token, data.refreshToken);
-  
-  return {
-    token: data.token,
-    refreshToken: data.refreshToken,
-    user: {
-      id: data.user.id,
-      email: data.user.email,
-      role: data.user.role,
-      isSubscribed: data.user.isSubscribed,
-      createdAt: data.user.createdAt,
-      updatedAt: data.user.updatedAt
-    }
-  };
+  if (!data.token) {
+    throw new Error('認証トークンが受信できませんでした');
+  }
+
+  return data;
 }
 
 export async function signupRequest(email: string, password: string): Promise<{ token: string; refreshToken: string; user: User }> {

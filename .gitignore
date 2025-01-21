@@ -8,8 +8,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # Dependencies
-/node_modules
-/.pnp
+node_modules
+.pnp
 .pnp.js
 dist
 dist-ssr
@@ -90,3 +90,16 @@ secrets.json
 *.log
 *.tmp
 *~
+
+# Testing
+coverage
+
+# Production
+build
+dist
+
+# Misc
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

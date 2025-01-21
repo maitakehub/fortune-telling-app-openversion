@@ -80,6 +80,14 @@ const userSchema = new Schema<IUser>({
   },
   lastLoginDate: {
     type: Date
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
   }
 }, {
   timestamps: true

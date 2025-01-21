@@ -12,6 +12,7 @@ import {
   type CardPosition
 } from '../utils/tarot';
 import { classNames } from '../utils/styles';
+import LoadingSpinner from './LoadingSpinner';
 
 // 型定義
 interface TarotReaderProps {
@@ -274,85 +275,70 @@ export default function TarotReader({ onFeedback }: TarotReaderProps) {
   }, []);
 
   // カードを引く処理
-  const handleDraw = useCallback(async () => {
+  const handleDrawCard = useCallback(async () => {
     try {
       setError(null);
-      setIsLoading(true);
       setDrawingCard(true);
-      setSelectedCards([]);
-      setCardDetails([]);
-      setReading(null);
+      setIsLoading(true);
 
       const pattern = SPREAD_PATTERNS[spreadType];
-      const cards = drawCards(pattern.positions.length);
-      
-      // デッキのアニメーション
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const drawnCards = drawCards(pattern.positions.length);
+      setSelectedCards(drawnCards);
 
-      // カードを1枚ずつ配る
-      for (let i = 0; i < cards.length; i++) {
-        setDrawingIndex(i);
-        setSelectedCards(prev => [...prev, cards[i]]);
-        const detail = getCardDetail(cards[i]);
-        setCardDetails(prev => [...prev, detail]);
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
+      // カードの詳細を取得
+      const details = drawnCards.map(card => getCardDetail(card));
+      setCardDetails(details);
 
-      // リーディングの生成
-      const result = await generateTarotChatResponse(spreadType, '', cards);
-      setReading(result);
+      // リーディングを生成
+      const readingResult = await generateTarotReading(spreadType, "今日の運勢を教えてください", drawnCards);
+      setReading(readingResult);
 
+      setShowDeck(false);
     } catch (err) {
-      setError('タロットリーディングの生成中にエラーが発生しました。もう一度お試しください。');
+      setError(err instanceof Error ? err.message : '占いの生成中にエラーが発生しました');
       console.error('Tarot reading error:', err);
     } finally {
-      setIsLoading(false);
       setDrawingCard(false);
+      setIsLoading(false);
     }
   }, [spreadType]);
 
-  // チャットメッセージの送信
-  const handleSendMessage = useCallback(async () => {
-    if (!chatInput.trim() || isChatLoading) return;
+  // チャットメッセージを送信
+  const handleSendMessage = async (message: string) => {
+    if (!message.trim()) return;
 
     try {
       setIsChatLoading(true);
-      const userMessage: ChatMessage = {
-        role: 'user',
-        content: chatInput
-      };
-      setChatMessages(prev => [...prev, userMessage]);
+      setChatMessages(prev => [...prev, { role: 'user', content: message }]);
       setChatInput('');
 
-      const response = await generateTarotChatResponse(
-        spreadType,
-        chatInput,
-        selectedCards
-      );
-      
-      const assistantMessage: ChatMessage = {
-        role: 'assistant',
-        content: response
-      };
-      setChatMessages(prev => [...prev, assistantMessage]);
+      const response = await generateTarotChatResponse(spreadType, message, selectedCards);
+      setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
+
+      if (chatMessagesRef.current) {
+        chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+      }
     } catch (err) {
-      setError('メッセージの送信中にエラーが発生しました。');
+      setError(err instanceof Error ? err.message : 'チャットの生成中にエラーが発生しました');
       console.error('Chat error:', err);
     } finally {
       setIsChatLoading(false);
     }
-  }, [chatInput, isChatLoading, spreadType, selectedCards]);
-
-  // キーボードイベントの処理
-  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  }, [handleSendMessage]);
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 to-indigo-900">
+    <div className="relative min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-indigo-900 p-8">
+      {/* ローディング画面 */}
+      <AnimatePresence>
+        {(isLoading || drawingCard) && (
+          <LoadingSpinner message={
+            drawingCard ? 'カードを選んでいます...' : 
+            isLoading ? 'カードを読み解いています...' : 
+            '占い中...'
+          } />
+        )}
+      </AnimatePresence>
+
       <div className="max-w-[1920px] mx-auto px-4 py-6">
         {/* ヘッダー */}
         <header className="flex justify-between items-center mb-8">
@@ -404,7 +390,7 @@ export default function TarotReader({ onFeedback }: TarotReaderProps) {
               )}
 
               <button
-                onClick={handleDraw}
+                onClick={handleDrawCard}
                 disabled={isLoading}
                 className={classNames(
                   "w-full py-3 rounded-lg font-medium transition-all duration-300",
@@ -583,7 +569,12 @@ export default function TarotReader({ onFeedback }: TarotReaderProps) {
                           type="text"
                           value={chatInput}
                           onChange={(e) => setChatInput(e.target.value)}
-                          onKeyPress={handleKeyPress}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSendMessage(chatInput);
+                            }
+                          }}
                           placeholder="カードについて質問してください..."
                           className={classNames(
                             "flex-1 p-3 rounded-lg",
@@ -593,7 +584,10 @@ export default function TarotReader({ onFeedback }: TarotReaderProps) {
                           )}
                         />
                         <button
-                          onClick={handleSendMessage}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleSendMessage(chatInput);
+                          }}
                           disabled={isChatLoading || !chatInput.trim()}
                           className={classNames(
                             "px-6 py-3 rounded-lg transition-colors",

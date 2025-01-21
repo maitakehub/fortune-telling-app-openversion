@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, User, Bot, Sparkles, Home, History } from 'lucide-react';
-import { usePersonalInfo } from '../context/PersonalInfoContext';
+import { usePersonalInfo } from '../contexts/PersonalInfoContext';
 import { Message, ChatContext } from '../types/chat';
 import { getOpenAIResponse } from '../utils/openai';
 import { useNavigate } from 'react-router-dom';
+import LoadingSpinner from './LoadingSpinner';
 
 const SUGGESTIONS = [
   "今日の運勢を教えて",
@@ -14,6 +15,8 @@ const SUGGESTIONS = [
   "健康運はどうですか？",
   "いつが転機となりそう？",
 ] as const;
+
+type Suggestion = typeof SUGGESTIONS[number];
 
 export default function AstrologyChatBot() {
   const { personalInfo } = usePersonalInfo();
@@ -38,7 +41,7 @@ export default function AstrologyChatBot() {
         type: 'text',
         timestamp: new Date(),
         metadata: {
-          suggestions: SUGGESTIONS,
+          suggestions: [...SUGGESTIONS],
         },
       };
       setMessages([initialMessage]);
@@ -53,29 +56,30 @@ export default function AstrologyChatBot() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const analyzeSuggestions = (userInput: string): string[] => {
-    const suggestions: string[] = [];
+  const analyzeSuggestions = (userInput: string): Suggestion[] => {
+    const suggestions: Suggestion[] = [];
     
     if (userInput.includes('恋愛')) {
       suggestions.push(
-        "理想の相手は近くにいますか？",
-        "出会いのベストなタイミングは？",
-        "恋愛運を上げるためのアドバイスをください"
+        "恋愛運が知りたいです",
+        "いつが転機となりそう？"
       );
     } else if (userInput.includes('仕事')) {
       suggestions.push(
-        "転職のタイミングは？",
-        "職場での人間関係について",
-        "昇進のチャンスはありますか？"
+        "仕事でのアドバイスをください",
+        "いつが転機となりそう？"
       );
     } else if (userInput.includes('金運')) {
       suggestions.push(
-        "投資のタイミングは？",
-        "金運を上げる方法を教えて",
-        "今月の臨時収入の可能性は？"
+        "金運アップの方法は？",
+        "今日の運勢を教えて"
       );
     } else {
-      suggestions.push(...SUGGESTIONS.slice(0, 3));
+      suggestions.push(
+        "今日の運勢を教えて",
+        "健康運はどうですか？",
+        "いつが転機となりそう？"
+      );
     }
 
     return suggestions;
@@ -144,7 +148,14 @@ export default function AstrologyChatBot() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
+    <div className="relative max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
+      {/* ローディング画面 */}
+      <AnimatePresence>
+        {isLoading && (
+          <LoadingSpinner message="星々の導きを受けています..." />
+        )}
+      </AnimatePresence>
+
       <div className="flex justify-between items-center mb-4 sm:mb-6 lg:mb-8">
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-purple-100 text-center flex-grow">AIと対話しながら星占い</h1>
         <button
@@ -206,37 +217,10 @@ export default function AstrologyChatBot() {
                         ))}
                       </div>
                     )}
-                  {message.sender === 'bot' && messages.length === 1 && message.metadata?.suggestions && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {message.metadata.suggestions.map((suggestion, index) => (
-                          <button
-                            key={index}
-                            onClick={() => setInput(suggestion)}
-                            className="text-sm px-3 py-1 rounded-full bg-purple-900/30 text-purple-200 hover:bg-purple-800/30 transition-colors"
-                          >
-                            {suggestion}
-                          </button>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 </motion.div>
               ))}
             </AnimatePresence>
-            {isLoading && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex items-center gap-2 text-purple-300"
-              >
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" />
-                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
-                </div>
-                <span className="text-sm">占いの神託を読み解いています...</span>
-              </motion.div>
-            )}
             <div ref={messagesEndRef} />
           </div>
 
@@ -252,14 +236,14 @@ export default function AstrologyChatBot() {
             />
             <button
               onClick={handleSend}
-              disabled={isLoading}
-              className={`absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full transition-colors
-                ${isLoading 
-                  ? 'bg-purple-500/50 cursor-not-allowed' 
-                  : 'bg-purple-500 hover:bg-purple-600'
-                }`}
+              disabled={isLoading || !input.trim()}
+              className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-2 rounded-full ${
+                isLoading || !input.trim()
+                  ? 'bg-purple-800/50 cursor-not-allowed'
+                  : 'bg-purple-600 hover:bg-purple-500'
+              }`}
             >
-              <Send size={16} className="text-white" />
+              <Send size={18} className="text-white" />
             </button>
           </div>
         </div>

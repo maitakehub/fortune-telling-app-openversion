@@ -6,17 +6,10 @@ export interface Message {
   id: number;
   content: string;
   sender: 'user' | 'bot';
-  type: MessageType;
-  timestamp: string;
+  type: 'text' | 'fortune';
+  timestamp: Date;
   metadata?: {
-    fortuneType?: string;
-    targetDate?: string;
-    compatibility?: {
-      sign1: string;
-      sign2: string;
-      score: number;
-    };
-    suggestions?: readonly string[];
+    suggestions?: string[];
   };
 }
 
@@ -38,18 +31,16 @@ export interface ChatMessage {
 }
 
 export interface ChatContext {
-  userId: string;
-  sessionId: string;
-  lastInteraction: string;
-  fortuneHistory: {
-    type: FortuneType;
-    result: string;
-    timestamp: string;
-  }[];
-  preferences: {
-    favoriteTypes: FortuneType[];
-    interestedAspects: string[];
-    language: 'ja' | 'en';
+  userId?: string;
+  sessionId?: string;
+  lastInteraction?: Date;
+  lastQuestion?: string;
+  consecutiveQuestions: number;
+  fortuneHistory?: string[];
+  preferences?: {
+    responseStyle?: 'detailed' | 'concise';
+    language?: 'ja' | 'en';
+    fortuneType?: 'general' | 'love' | 'career' | 'money';
   };
 }
 

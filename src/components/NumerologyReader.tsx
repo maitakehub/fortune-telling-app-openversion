@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { NumerologyParams, NumerologyReading } from '../types';
 import { generateNumerologyReading } from '../utils/numerology';
+import LoadingSpinner from './LoadingSpinner';
 
 // アニメーション設定
 const animations = {
@@ -165,6 +166,13 @@ export function NumerologyReader({ onSave, onFeedback }: Props) {
 
   return (
     <div className="max-w-2xl mx-auto p-4 sm:p-6 lg:p-8">
+      {/* ローディング画面 */}
+      <AnimatePresence>
+        {isLoading && (
+          <LoadingSpinner message="数秘術で運命を読み解いています..." />
+        )}
+      </AnimatePresence>
+
       <div className="flex justify-between items-center mb-4 sm:mb-6 lg:mb-8">
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-purple-100 text-center flex-grow">数秘術で運命を読み解く</h1>
         <button
