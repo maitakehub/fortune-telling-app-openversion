@@ -1,6 +1,6 @@
 import { jwtDecode } from 'jwt-decode';
 import { AUTH_CONSTANTS } from '../constants/auth';
-import { ErrorType, AuthError, ApiError } from '../types/errors';
+import { ErrorType } from '../types/error';
 import { User, UserRole } from '../types/user';
 
 interface LoginSignupResponse {
@@ -37,7 +37,7 @@ export function saveSessionInfo(token: string, refreshToken: string): void {
   const sessionInfo: SessionInfo = {
     token,
     refreshToken,
-    expiresAt: Date.now() + AUTH_CONSTANTS.SESSION_DURATION,
+    expiresAt: Date.now() + AUTH_CONSTANTS.SESSION.DURATION,
     lastActivity: Date.now()
   };
   localStorage.setItem(SESSION_KEY, JSON.stringify(sessionInfo));
@@ -95,23 +95,23 @@ export function clearSession(): void {
   localStorage.removeItem(SESSION_KEY);
 }
 
-async function handleApiError(response: Response): Promise<never> {
-  let errorData: ApiError;
-  try {
-    errorData = await response.json();
-  } catch {
-    errorData = {
-      type: ErrorType.SERVER_ERROR,
-      message: AUTH_CONSTANTS.ERROR_MESSAGES.SERVER_ERROR
-    };
+export class ApiError extends Error {
+  constructor(
+    public statusCode: number,
+    public message: string,
+    public type: ErrorType
+  ) {
+    super(message);
+    this.name = 'ApiError';
   }
-
-  throw new AuthError(
-    errorData.type || ErrorType.SERVER_ERROR,
-    errorData.message || AUTH_CONSTANTS.ERROR_MESSAGES.SERVER_ERROR,
-    errorData.details
-  );
 }
+
+export const handleError = (error: any): ApiError => {
+  if (error instanceof ApiError) {
+    return error;
+  }
+  return new ApiError(500, AUTH_CONSTANTS.ERROR_MESSAGES.SERVER_ERROR, ErrorType.SERVER_ERROR);
+};
 
 export async function loginRequest(email: string, password: string) {
   const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login`, {
@@ -146,9 +146,10 @@ export async function signupRequest(email: string, password: string): Promise<{ 
 
   if (!response.ok) {
     const errorData = await response.json();
-    throw new AuthError(
-      errorData.type || ErrorType.SERVER_ERROR,
-      errorData.message || AUTH_CONSTANTS.ERROR_MESSAGES.SERVER_ERROR
+    throw new ApiError(
+      response.status,
+      errorData.message || AUTH_CONSTANTS.ERROR_MESSAGES.SERVER_ERROR,
+      ErrorType.SERVER_ERROR
     );
   }
 
@@ -174,9 +175,10 @@ export async function signupRequest(email: string, password: string): Promise<{ 
 export async function refreshTokenRequest(): Promise<{ token: string; refreshToken: string }> {
   const sessionInfo = getSessionInfo();
   if (!sessionInfo?.refreshToken) {
-    throw new AuthError(
-      ErrorType.REFRESH_TOKEN_MISSING,
-      AUTH_CONSTANTS.ERROR_MESSAGES.REFRESH_TOKEN_MISSING
+    throw new ApiError(
+      400,
+      AUTH_CONSTANTS.ERROR_MESSAGES.REFRESH_TOKEN_MISSING,
+      ErrorType.REFRESH_TOKEN_MISSING
     );
   }
 
@@ -187,7 +189,7 @@ export async function refreshTokenRequest(): Promise<{ token: string; refreshTok
   });
 
   if (!response.ok) {
-    await handleApiError(response);
+    await handleError(await response.json());
   }
 
   const data = await response.json();
@@ -209,9 +211,10 @@ export async function logoutRequest(token: string): Promise<void> {
 
   if (!response.ok) {
     const errorData = await response.json();
-    throw new AuthError(
-      errorData.type || ErrorType.SERVER_ERROR,
-      errorData.message || AUTH_CONSTANTS.ERROR_MESSAGES.SERVER_ERROR
+    throw new ApiError(
+      response.status,
+      errorData.message || AUTH_CONSTANTS.ERROR_MESSAGES.SERVER_ERROR,
+      ErrorType.SERVER_ERROR
     );
   }
 }
@@ -220,9 +223,10 @@ export function getCurrentUserFromToken(token: string): User | null {
   try {
     if (!isSessionValid()) {
       clearSession();
-      throw new AuthError(
-        ErrorType.SESSION_EXPIRED,
-        AUTH_CONSTANTS.ERROR_MESSAGES.SESSION_EXPIRED
+      throw new ApiError(
+        401,
+        AUTH_CONSTANTS.ERROR_MESSAGES.SESSION_EXPIRED,
+        ErrorType.SESSION_EXPIRED
       );
     }
 
@@ -243,7 +247,7 @@ export function getCurrentUserFromToken(token: string): User | null {
       updatedAt: new Date().toISOString(),
     };
   } catch (error) {
-    if (error instanceof AuthError) {
+    if (error instanceof ApiError) {
       throw error;
     }
     return null;
@@ -286,7 +290,7 @@ export async function requestPasswordReset(email: string): Promise<void> {
   });
 
   if (!response.ok) {
-    await handleApiError(response);
+    await handleError(await response.json());
   }
 }
 
@@ -313,7 +317,7 @@ export async function resetPassword(token: string, newPassword: string): Promise
   });
 
   if (!response.ok) {
-    await handleApiError(response);
+    await handleError(await response.json());
   }
 }
 
